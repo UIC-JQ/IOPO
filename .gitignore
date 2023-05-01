@@ -1,0 +1,8 @@
+*.txt
+*.mat
+*.csv
+./*.txt
+./result
+./*/*.txt
+./test_data/*
+./training_data/*
