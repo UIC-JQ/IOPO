@@ -2,7 +2,6 @@ import torch
 from memoryPyTorch import MemoryDNN
 
 if __name__ == '__main__':
-    print(111)
     path1 = "/Users/Helen/Documents/Mphi/code/UAV-IRS V2/result/"
     model_path = path1 + 'model_param.pt'
 

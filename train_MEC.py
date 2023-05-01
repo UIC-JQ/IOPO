@@ -82,7 +82,7 @@ if __name__ == "__main__":
 
     print('#input dim = %d, #sample=%d,decoder = %s, Memory = %d, Delta = %d'%(N,n,decoder_mode, Memory, Delta))
     # Load training data
-    path = './training_data/data_%d.csv' % U
+    path = './test_data/testData_userNumber=3_n=5000.csv'
     with open(path, mode='r') as file:
         # 创建CSV读取器，指定分隔符为逗号
         reader = csv.reader(file, delimiter=',')
@@ -169,19 +169,19 @@ if __name__ == "__main__":
         mode_his.append(m_list[np.argmin(r_list)])
         
 
-    mem.plot_cost()
+    # mem.plot_cost()
     # save data into txt
-    path1 = "/Users/Helen/Documents/Mphi/code/UAV-IRS V2/result/"
+    # path1 = "/Users/Helen/Documents/Mphi/code/UAV-IRS V2/result/"
     
     ## save_to_txt(rate_his_ratio, path1+"rate_his_ratio.txt")
 
-    save_path = path1 + 'model_param.pt'
-    save_model(mem, save_path)
-    save_to_txt(k_idx_his, path1+"k_idx_his.txt")
-    save_to_txt(K_his, path1+"K_his.txt")
-    save_to_txt(mem.cost_his, path1+"cost_his.txt")
-    save_to_txt(r_list, path1+"energy.txt")
-    save_to_txt(mode_his, path1+"mode_his.txt")
+    # save_path = path1 + 'model_param.pt'
+    # save_model(mem, save_path)
+    # save_to_txt(k_idx_his, path1+"k_idx_his.txt")
+    # save_to_txt(K_his, path1+"K_his.txt")
+    # save_to_txt(mem.cost_his, path1+"cost_his.txt")
+    # save_to_txt(r_list, path1+"energy.txt")
+    # save_to_txt(mode_his, path1+"mode_his.txt")
         
         
 

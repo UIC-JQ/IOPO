@@ -6,3 +6,4 @@
 ./*/*.txt
 ./test_data/*
 ./training_data/*
+__pycache__

@@ -51,5 +51,5 @@ def random_location_generate(n, user, mode):
     return
 
 if __name__ == '__main__':
-    # random_location_generate(n=5000, user=3, mode='test')
-    random_location_generate(n=10000, user=3, mode='train')
+    random_location_generate(n=5000, user=3, mode='test')
+    # random_location_generate(n=10000, user=3, mode='train')
