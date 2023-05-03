@@ -59,11 +59,12 @@ class DataConfig:
                                                 for _ in range(self.user_number)]
 
         
+        # -----------------------------------------------------------------------
         # 无人机:
         # 1. the computation rate of UAVs cycles/slot
-        __UAV_COMP_CAP_LOWER_B      = 80000
-        __UAV_COMP_CAP_HIGHER_B     = 125000
-        self.uav_computational_capacity = [np.random.randint(__UAV_COMP_CAP_LOWER_B, __UAV_COMP_CAP_HIGHER_B)
+        self.__UAV_COMP_CAP_LOWER_B      = 80000
+        self.__UAV_COMP_CAP_HIGHER_B     = 125000
+        self.uav_computational_capacity = [np.random.randint(self.__UAV_COMP_CAP_LOWER_B, self.__UAV_COMP_CAP_HIGHER_B)
                                                 for _ in range(self.uav_number)]
         # 2.无人机功率 j/slot = 600W
         __UAV_POWER_LOW_B            = 0.05
@@ -73,6 +74,7 @@ class DataConfig:
         # 3.无人机位置
         # format：(x, y, height)
         # 只有4，6两种情况
+        # BUG: FIX ME
         __uav_coordinate = {
             4: [],
             6: [61, 321, 20, 
@@ -88,38 +90,78 @@ class DataConfig:
         self.uav_coordinate = __uav_coordinate[self.uav_number]
 
 
+        # -----------------------------------------------------------------------
         # 用于生成数据集的设置
-        self.board_x_size = 600
-        self.board_y_size = 800
+        self.dataset_board_x_size = 600
+        self.dataset_board_y_size = 800
+
+        # 单位：Mb
+        self.dataset_user_task_size_l_b = 300
+        self.dataset_user_task_size_h_b = 500
+
+        # 单位: cycle/bit
+        self.dataset_cpb_l_b = 40
+        self.dataset_cpb_h_b = 150
+        
+        # 单位: slot (1.25ms)
+        # 超过本地计算需要时间多久是可以的
+        self.cut_off_time = 10
 
         
-    def generate_dataset(self, n=5000, saving_path=None):
-        la = [] #训练数据
+    def generate_dataset(self, num_of_data_points=5000, saving_path=None):
+        # format: (user1_x, user1_y, user_1_z, user2_x, user_2_y, user2_z, ..., user_1_task_size, user_1_cpu_needed, user_1_tolerance)
+        data_for_computing_energy_cost = [] 
+        # format: (f1, f2, ..., fn)
+        # fi = (distance_to_uavs (用户距离无人机的距离) size=uav_number, 
+        #       task_package_size (分配给用户的task包的大小, 影响传输速度) size = 1,
+        #       user_transfer_power (用户传输能量消耗功率) size = 1,
+        #       task_cpu_time_total (完成task包需要的cpu cycles 总量) size = 1,
+        #       task_finish_time_threshold (允许完成任务的时间 (不超过这个时间都可以)) size = 1,
+        #       time_local_time_need (本地完成任务所需要的时间) size = 1,
+        #       eng_cost_user_loacl_compute（用户本地计算的能量消耗) size = 1,
+        #       time_each_uav_finish_task (在每个无人机上完成task需要的时间) size=uav_number,
+        #       eng_cost_uavs_compute (每个无人机上完成task需要消耗的能量) size=uav_number,
+        #       )
+        # size_of_fi = (uav_number * 3 + 1 * 6)
+        # size_of x_i = f_i * user_number
+        data_X_features = []
+        data_Y = []
 
-        # features:
-        for _ in tqdm(range(n)):
-            lm = []
+        for _ in tqdm(range(num_of_data_points)):
+            eng_cost = []
+            feature = []
+            Y = None
 
             # 生成用户坐标：(x, y, z)
             for _ in range(self.user_number):
-                lm.append(np.random.uniform(0, self.board_x_size))
-                lm.append(np.random.uniform(0, self.board_y_size))
-                lm.append(0)
+                x = np.random.uniform(0, self.dataset_board_x_size)
+                y = np.random.uniform(0, self.dataset_board_y_size)
+                eng_cost.extend([x, y, 0])
+                for idx in range(self.uav_number):
+                    dist = np.linalg.norm(np.array([x, y, 0]) - self.uav_coordinate[idx])
+                    print('point: {}, uav co: {}, distance to uav: {} is: {}'.format((x,y,z), self.uav_coordinate[idx], idx, dist))
 
-            # 生成task info   
-            for _ in range(self.user_number):
-                data = round(np.random.uniform(3e2, 5e2)) #用户平均任务大小 Mbit/slot单位时间多少Mbit
-                lm.append(data)
+            # 生成task info
+            for i in range(self.user_number):
+                #用户平均任务大小 Mbit/slot单位时间多少Mbit
+                task_size = np.random.randint(self.dataset_user_task_size_l_b, self.dataset_user_task_size_h_b) 
+                eng_cost.append(task_size)
 
-                cpb = np.random.randint(40,150)*1e-3 # 单位比特计算次数为 40-150 cycles
-                data = np.round(data * cpb)#任务需要的cpu数量
-                lm.append(data)
+                cpb = np.random.randint(self.dataset_cpb_l_b, self.dataset_cpb_h_b) * 1e-3
+                cpu_cycles_need = task_size * cpb #任务需要的cpu数量
+                eng_cost.append(cpu_cycles_need)
 
-                lm.append(np.random.randint(np.ceil(data*1e6/125000),np.ceil(data*1e6/125000)+1000))#任务可以接受的延迟 slot
 
-            la.append(lm)
+                time_requirement_l_b = np.ceil( (cpu_cycles_need * 1e6) / self.__UAV_COMP_CAP_HIGHER_B )
+                time_requirement_h_b = np.ceil( (cpu_cycles_need * 1e6) / self.user_computational_capacity[i] ) + self.cut_off_time
 
-        self.__save_to_csv(la, saving_path)
+                assert time_requirement_l_b < time_requirement_h_b
+                compute_time_allowed = np.random.randint(time_requirement_l_b, time_requirement_h_b)
+                eng_cost.append(compute_time_allowed) # 任务可以接受的延迟 slot
+
+            data_for_computing_energy_cost.append(eng_cost)
+
+        self.__save_to_csv(data_for_computing_energy_cost, saving_path)
         
     
     def __save_to_csv(self, data, file_path):
@@ -166,11 +208,11 @@ class DataConfig:
 
 if __name__ == '__main__':
     # 创建对象
-    dataObj = DataConfig(load_config_from_path='config.json')
-    # dataObj = DataConfig(n_of_user=10, n_of_uav=10)
+    # dataObj = DataConfig(load_config_from_path='config.json')
+    dataObj = DataConfig(n_of_user=1, n_of_uav=6)
 
     # 保存config
     # dataObj.save_config('config.json')
     
     # 生成数据集:
-    dataObj.generate_dataset(n=1000, saving_path='./h.csv')
+    dataObj.generate_dataset(num_of_data_points=1000, saving_path='./h.csv')

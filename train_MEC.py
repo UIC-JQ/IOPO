@@ -6,7 +6,6 @@ from memoryPyTorch import MemoryDNN
 from opt3 import whale
 import torch
 
-import time
 from tqdm import tqdm
 
 from dataclass import DataConfig
@@ -80,7 +79,6 @@ if __name__ == "__main__":
 
     data_config = DataConfig(n_of_user=U, n_of_uav=M)
 
-    print('#input dim = %d, #sample=%d,decoder = %s, Memory = %d, Delta = %d'%(N,n,decoder_mode, Memory, Delta))
     # Load training data
     path = './test_data/testData_userNumber=3_n=5000.csv'
     with open(path, mode='r') as file:
@@ -92,12 +90,6 @@ if __name__ == "__main__":
         for row in reader:
             data.append(row)
             
-        # load all
-        # for row in reader:
-            # X = data.append(row)
-        # for row in reader_answer:
-            # Y = data.append(row)
-
         location = np.array(data, dtype=float)
 
     # create model

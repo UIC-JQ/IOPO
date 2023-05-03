@@ -74,9 +74,6 @@ def whale(h, b, data_config: DataConfig, need_stats=False):
 
     lu,data_u,cycle_u,time_u= split_info(h)
 
-
-    
-
     # for equation 4
     sigma2 = 10**((-174)/10 - 3)#-174 dBm/Hz Gaussian nosie power
     b = np.array(b)
@@ -302,14 +299,9 @@ def whale(h, b, data_config: DataConfig, need_stats=False):
         Iter = 0
         while Iter < max_iter:
 
-            # after every 10 iterations
-            # print iteration number and best fitness value so far
-            #if Iter % 10 == 0 and Iter > 1:
-                #print("Iter = " + str(Iter) + " best fitness = %.3f" % Fbest)
-
             # linearly decreased from 2 to 0
             a = 2 * (1 - Iter / max_iter)
-            a2=-1+Iter*((-1)/max_iter)
+            a2 = -1 + Iter*((-1)/max_iter)
 
             for i in range(n):
                 A = 2 * a * rnd.random() - a
