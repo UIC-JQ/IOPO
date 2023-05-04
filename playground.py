@@ -16,6 +16,18 @@ def random_sample(user, uav, K=100):
 
     return random_sols[0]
 
+def __normalize_feature(self, F):
+    # TODO: 修改normalize方法
+
+    F = np.array(F)
+
+    mean = np.mean(F, axis=1)
+    std = np.std(F, axis=1)
+
+    normalized = (F - mean) / std
+
+    return normalized
+
 if __name__ == '__main__':
     n = 5000
     for _ in tqdm(range(5000)):

@@ -7,13 +7,8 @@ import random
 import math # cos() for Rastrigin
 import copy # array-copying convenience
 import sys # max float
-from scipy import optimize
-from scipy.special import lambertw
-import scipy.io as sio                     # import scipy.io for .mat file I/
-import time
-from dataclass import DataConfig
 
-def whale(h, b, data_config: DataConfig, need_stats=False):
+def whale(h, b, data_config, need_stats=False):
     
     # for equation 1 - 3
     '''
@@ -68,8 +63,11 @@ def whale(h, b, data_config: DataConfig, need_stats=False):
             data_u = np.append(data_u,i[0])
             cycle_u = np.append(cycle_u,i[1])
             time_u = np.append(time_u,i[2])
-        data_u = data_u*1000
-        cycle_u = cycle_u*1e6
+
+        # 统一了单位
+        # data_u = data_u*1000
+        # cycle_u = cycle_u*1e6
+
         return lu,data_u,cycle_u,time_u
 
     lu,data_u,cycle_u,time_u= split_info(h)
@@ -361,8 +359,8 @@ def whale(h, b, data_config: DataConfig, need_stats=False):
     dim = x*z #反射板总个数
     fitness = prob
 
-    num_whales = 5
-    max_iter = 10
+    num_whales = data_config.optimize_num_whales
+    max_iter = data_config.optimize_max_iter
 
     best_position = woa(fitness, max_iter, num_whales, dim,0,2*np.pi)
     err = fitness(best_position)

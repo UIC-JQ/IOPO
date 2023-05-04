@@ -8,3 +8,4 @@
 ./training_data/*
 __pycache__
 *.json
+*.pt
