@@ -110,7 +110,7 @@ class DataConfig:
 
         # -------------------------------------------------------------------------
         # 用于鲸鱼算法优化
-        self.optimize_num_whales = 5
+        self.optimize_num_whales = 3
         self.optimize_max_iter = 5
 
         
@@ -134,6 +134,8 @@ class DataConfig:
 
         data_Y = []
         K = self.dataset_random_times_for_selecting_best_sol if not K else K
+
+        data_eng_cost = []
 
         for _ in tqdm(range(num_of_data_points)):
             eng_cost = []
@@ -203,13 +205,30 @@ class DataConfig:
             data_for_computing_energy_cost.append(eng_cost)
             data_X_features.append(feature)
 
-            # 生成当前record的解
-            _, sol = self.random_sample_lower_eng_cost_plan(eng_cost, K=K, exclude_local_options=False)
-            data_Y.append(sol)
+            # 生成当前record的解 (由0, 1构成，每个user最多有一个1)
+            e_cost, sol = self.random_sample_lower_eng_cost_plan(eng_cost, K=K, exclude_local_options=False)
+
+            # 将解转换成编号
+            # [0, 0, 1] -> 选择无人机编号3
+            # [0, 0, 0] -> 0, 代表本地计算
+            Y = []
+            for dd in range(self.user_number):
+                base = dd * self.uav_number
+                find_one_idx = np.where(sol[base: base + self.uav_number])[0]
+
+                if len(find_one_idx) < 1:
+                    Y.append(0)
+                else:
+                    Y.append(find_one_idx[0] + 1)
+                
+            # print(Y, sol)
+            data_Y.append(np.array(Y))
+            data_eng_cost.append([e_cost])
 
         self.__save_to_csv(data_for_computing_energy_cost, saving_path + '_record')
         self.__save_to_csv(data_X_features, saving_path + '_feature')
         self.__save_to_csv(data_Y, saving_path + '_solution')
+        self.__save_to_csv(data_eng_cost, saving_path + '_energy_cost')
     
     def __save_to_csv(self, data, file_name, file_type='.csv'):
         with open(file_name + file_type, mode='w+', newline='') as f:
@@ -293,11 +312,10 @@ if __name__ == '__main__':
     number_of_user = 3
     number_of_uav = 6
     dataObj = DataConfig(n_of_user=number_of_user, n_of_uav=number_of_uav)
-
     
     # 保存config
     dataObj.save_config('CONFIG_NumOfUser:{}_NumOfUAV:{}.json'.format(number_of_user, number_of_uav))
 
     # 生成数据集:
-    dataObj.generate_dataset(num_of_data_points=1000, saving_path='./TRAINING_NumOfUser:{}_NumOfUAV:{}'.format(number_of_user, number_of_uav), K=30)
-    dataObj.generate_dataset(num_of_data_points=1000, saving_path='./TESTING_NumOfUser:{}_NumOfUAV:{}'.format(number_of_user, number_of_uav), K=1)
+    dataObj.generate_dataset(num_of_data_points=10000, saving_path='./TRAINING_NumOfUser:{}_NumOfUAV:{}'.format(number_of_user, number_of_uav), K=100)
+    dataObj.generate_dataset(num_of_data_points=5000, saving_path='./TESTING_NumOfUser:{}_NumOfUAV:{}'.format(number_of_user, number_of_uav), K=1)

@@ -11,7 +11,6 @@ import torch
 import torch.optim as optim
 import torch.nn as nn
 import numpy as np
-import sys
 
 # DNN network for memory
 class MemoryDNN(nn.Module):
@@ -24,123 +23,117 @@ class MemoryDNN(nn.Module):
         training_interval=10,
         batch_size=100,
         dropout=0.2,
-        data=None
+        data=None,
+        data_eng_cost=None,
+        split_len=None,
+        convert_output_size=None,
+        data_config=None
     ):
         super(MemoryDNN, self).__init__()
         self.input_feature_size = input_feature_size
         self.hidden_feature_size = hidden_feature_size
         self.output_size = output_size
-
+        self.convert_output_size = convert_output_size
         self.training_interval = training_interval      # learn every training_interval
         self.lr = learning_rate
         self.batch_size = batch_size
         self.dropout_rate = dropout
+        self.split_len = split_len
+        self.data_config = data_config
 
         # store all binary actions
         self.enumerate_actions = []
 
-        # stored # memory entry
-        self.step_count = 1
-
-        # store training cost
+        # store training cost, 用于画图
         self.cost_his = []
 
-        # initialize zero memory [h, m]
-        # self.memory = np.zeros((self.memory_size, self.input_feature_size + self.output_size))
-        self.data = torch.Tensor(data)
+        # 准备训练数据
+        data = torch.Tensor(data)
+        self.data_X = data[:, 0: self.input_feature_size]
+        self.data_Y = data[:, self.input_feature_size:]
+        self.NUM_OF_DATA = len(data)
+        self.data_ENG_COST = torch.Tensor(data_eng_cost)
 
         # construct memory network
         self._build_net()
         self._build_opt_tools()
 
     def _build_net(self):
-        # (input_size, h//2) -> (h//2, h) -> (h, h) -> (h, h//2) -> (h//2, output_size)
-        # self.model = nn.Sequential(
-        #         nn.Linear(self.input_feature_size, self.hidden_feature_size // 2),
-        #         nn.ReLU(),
-        #         nn.Dropout(self.dropout_rate),
-        #         nn.Linear(self.hidden_feature_size // 2, self.hidden_feature_size),
-        #         nn.ReLU(),
-        #         nn.Dropout(self.dropout_rate),
-        #         nn.Linear(self.hidden_feature_size, self.hidden_feature_size),
-        #         nn.ReLU(),
-        #         nn.Dropout(self.dropout_rate),
-        #         nn.Linear(self.hidden_feature_size, self.hidden_feature_size //2),
-        #         nn.ReLU(),
-        #         nn.Dropout(self.dropout_rate),
-        #         nn.Linear(self.hidden_feature_size // 2, self.output_size),
-        #         nn.Sigmoid()
-        # )
-
+        # (input_size, h//2) -> (h//2, h) -> (h, h) * 5 -> (h, h//2) -> (h//2, output_size)
         self.model = nn.Sequential(
-            nn.Linear(self.input_feature_size, self.hidden_feature_size),
-            nn.ReLU(),
-            nn.Linear(self.hidden_feature_size, self.hidden_feature_size),
-            nn.ReLU(),
-            nn.Linear(self.hidden_feature_size, self.output_size),
-            nn.ReLU(),
-            nn.Sigmoid()
+                nn.Linear(self.input_feature_size, self.hidden_feature_size // 2),
+                nn.Tanh(),
+                nn.Dropout(self.dropout_rate),
+                nn.Linear(self.hidden_feature_size // 2, self.hidden_feature_size),
+                nn.Tanh(),
+                nn.Dropout(self.dropout_rate),
+                nn.Linear(self.hidden_feature_size, self.hidden_feature_size),
+                nn.Tanh(),
+                nn.Dropout(self.dropout_rate),
+                nn.Linear(self.hidden_feature_size, self.hidden_feature_size),
+                nn.Tanh(),
+                nn.Dropout(self.dropout_rate),
+                nn.Linear(self.hidden_feature_size, self.hidden_feature_size),
+                nn.Tanh(),
+                nn.Dropout(self.dropout_rate),
+                nn.Linear(self.hidden_feature_size, self.hidden_feature_size //2),
+                nn.Tanh(),
+                nn.Dropout(self.dropout_rate),
+                nn.Linear(self.hidden_feature_size // 2, self.output_size),
         )
+
     
     def _build_opt_tools(self):
         self.optimizer = optim.Adam(self.model.parameters(), lr=self.lr,betas = (0.09,0.999),weight_decay=0.0001) 
-        self.criterion = nn.BCELoss()
+        self.criterion = nn.NLLLoss()
     
-    def train(self):
-        if self.step_count % self.training_interval == 0:
-            self.learn()
-        
-        self.step_count += 1
-
-#     def remember(self, h, m):
-#         # replace the old memory with new memory
-#         idx = self.memory_counter % self.memory_size
-#         self.memory[idx, :] = np.hstack((h, m))
-
-#         self.memory_counter += 1
-
-#     def encode(self, h, m):
-#         # encoding the entry
-#         self.remember(h, m)
-#         # train the DNN every 10 step
-# #        if self.memory_counter> self.memory_size / 2 and self.memory_counter % self.training_interval == 0:
-
-#         # NOTE: train the network every [self.training_interval] steps.
-#         if self.memory_counter % self.training_interval == 0:
-#             self.learn()
-        
-
-    def learn(self):
+    def train(self, flag_regenerate_better_sol=False, eng_cost_func=None):
         # 随机选择batch_size行数据
-        sample_index = np.random.choice(len(self.data), size=self.batch_size)
-        # 将batch_size行数据存入batch_memory
-        sampled_data_pairs = self.data[sample_index, :]
+        sample_index = np.random.choice(self.NUM_OF_DATA, size=self.batch_size)
 
-        # 解析X, Y
-        # [0, self.net[0]) 为 input feature
-        # [self.net[0]: ] 为 标准答案
-        x = sampled_data_pairs[:, 0: self.input_feature_size]
-        y = sampled_data_pairs[:, self.input_feature_size:]
+        # 获取相应的x, y
+        x = self.data_X[sample_index]
+        y = self.data_Y[sample_index]
+
+
         predict = self.model(x)
+        # 将predicth(batch_size, uav_num + 1)
+        predict = torch.reshape(predict, (-1, self.split_len))
 
-        # 反向传播:
-        # optimizer = optim.Adam(self.model.parameters(), lr=self.lr,betas = (0.09,0.999),weight_decay=0.0001) 
-        # criterion = nn.BCELoss()
-        # self.model.train()
-        # loss = criterion(predict, y)
-        # optimizer.zero_grad()
-        # loss.backward()
-        # optimizer.step()
+        # 对这些训练数据生成更好的reference answer
+        if flag_regenerate_better_sol:
+            # 将数据复原
+            split_by_data_pair = torch.tensor_split(predict, predict.shape[0] // self.data_config.user_number, dim=0)
+            assert split_by_data_pair[0].shape == (self.data_config.user_number, self.split_len)
 
-        loss = self.criterion(predict, y)
+            for idx, each_data_pair_predict in enumerate(split_by_data_pair):
+                # 愿数据的位置
+                ori_idx = sample_index[idx]
+                # 计算predict probability
+                probs = nn.functional.softmax(each_data_pair_predict, dim=1)
+                # 生成更好的y
+                better_sol, eng_cost = self.regenerate_better_solution(probs, self.data_ENG_COST[ori_idx], eng_cost_func, ori_idx)
+
+                if better_sol is not None:
+                    # 替换data pair
+                    self.data_Y[ori_idx] = better_sol
+                    self.data_ENG_COST[ori_idx] = eng_cost
+                    # 替换现在的训练数据
+                    y[idx] = better_sol
+
+        # 计算LOSS:
+        predict = nn.functional.log_softmax(predict, dim=1)
+        # 将(batch_size, n_of_user) 垂直展开，结果为b_size * n_of_user行，1列.
+        y = torch.reshape(y, (-1, ))
+        loss = self.criterion(predict, y.long())
+
+        # 优化模型参数
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
 
-        cost = loss.item()
-
-        assert(cost > 0)
-        self.cost_his.append(cost)
+        # 用于画图
+        self.cost_his.append(loss.item())
     
     def save_model(self, save_path):
         torch.save(self, save_path)
@@ -151,18 +144,19 @@ class MemoryDNN(nn.Module):
     
     def generate_answer(self, input, data_config):
         x = torch.Tensor(input)
-        threshold = 0.5
 
         predict = self.model(x)
-        print(predict)
-        answer = np.zeros(self.output_size)
+        answer = np.zeros(self.convert_output_size)
 
-        for i in range(data_config.user_number):
-            idx = i * data_config.uav_number
-            prob = predict[idx: idx + data_config.uav_number]
-            arg_idx = torch.argmax(prob)
-            if predict[arg_idx + idx] > threshold:
-                answer[arg_idx + idx] = 1
+        predict = torch.reshape(predict, (-1, self.split_len))
+        predict = nn.functional.softmax(predict, dim=1)
+        ans = torch.argmax(predict, dim=1)
+
+        for i, idx in enumerate(ans):
+            base = i * data_config.uav_number
+            if idx == 0:
+                continue
+            answer[idx + base - 1] = 1
         
         return answer
 
@@ -183,6 +177,12 @@ class MemoryDNN(nn.Module):
             print("The action selection must be 'OP' or 'KNN'")
 
     def mp(self, m, k = 1):
+        """
+        model -> predict
+        1. sol1: predict -> 最大的和Threshold比，只有大于threshold的被生成为1
+        2. 循环K次
+            2.1 每次
+        """
         threshold = 0.5
         m_list = []
         uav = 6
@@ -192,7 +192,6 @@ class MemoryDNN(nn.Module):
         idx_list = np.argsort(m_abs)[:k-1]
         mt = m.reshape(-1, uav)
         max_val_per_row = np.argmax(mt, axis=1)
-
 
         b = np.zeros((user, uav), dtype=int)
 
@@ -223,6 +222,41 @@ class MemoryDNN(nn.Module):
         m_set = set(map(tuple, m_list))
         m_new_list = list(map(list, m_set))
         return m_new_list
+    
+    def regenerate_better_solution(self, predict_prob: torch.Tensor, min_eng_cost: torch.float, eng_cost_function, ori_idx: int):
+        # 记录:
+        final_ans = None
+        reshaped_prob = predict_prob.view(-1, 1)
+        threshold_v = float(torch.mean(reshaped_prob))
+
+        # (1, self.output_size)
+        threshold_0 = torch.full(reshaped_prob.shape, fill_value=threshold_v, dtype=torch.float32)
+        threshold_rank, idx_list = torch.sort(nn.functional.pairwise_distance(threshold_0, reshaped_prob, p=2))
+        # print(threshold_rank)
+        # print(idx_list)
+
+        new_sol = torch.zeros(self.convert_output_size)
+        new_sol_idx = torch.argmax(predict_prob, dim=1)
+        T = []
+        for row, idx in enumerate(new_sol_idx):
+            if idx == 0:
+                T.append(0)
+                continue
+
+            if predict_prob[row][idx] >= threshold_v:
+                T.append(idx)
+                new_idx = row * (self.split_len - 1) + (idx - 1)
+                new_sol[new_idx] = 1
+            else:
+                T.append(0)
+
+        _, energy_cost = eng_cost_function(ori_idx, new_sol)
+        if min_eng_cost > energy_cost:
+            min_eng_cost = energy_cost
+            final_ans = torch.tensor(T, dtype=torch.long)
+            print(1)
+        
+        return final_ans, min_eng_cost
     
     def knm(self, m, k = 1):
         # return k order-preserving binary actions
