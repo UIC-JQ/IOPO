@@ -1,2 +1,2 @@
 python dataclass.py
-python train_MEC.py
+python train.py
