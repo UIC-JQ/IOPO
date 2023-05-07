@@ -43,25 +43,19 @@ class DataConfig:
         self.IRS_z_number             = 5#IRS z-axis refector
 
         # the computation rate of users (local) UEDs cycles/slot
-        # __USER_C_LOWER_BOUND        = 5000
-        # __USER_C_HIGHER_BOUND       = 20000
-        __USER_C_LOWER_BOUND        = 10000
-        __USER_C_HIGHER_BOUND       = 30000
+        __USER_C_LOWER_BOUND        = 5000
+        __USER_C_HIGHER_BOUND       = 20000
         self.user_computational_capacity = [np.random.randint(__USER_C_LOWER_BOUND, __USER_C_HIGHER_BOUND)
                                                  for _ in range(self.user_number)]    
         # 用户计算功率 j/slot
-        # __USER_C_POWER_LOWER_B      = 0.01
-        # __USER_C_POWER_HIGHER_B     = 0.05
-        __USER_C_POWER_LOWER_B      = 0.001
-        __USER_C_POWER_HIGHER_B     = 0.005
+        __USER_C_POWER_LOWER_B      = 0.01
+        __USER_C_POWER_HIGHER_B     = 0.05
         self.user_computation_power    = [np.random.uniform(__USER_C_POWER_LOWER_B, __USER_C_POWER_HIGHER_B)
                                                  for _ in range(self.user_number)]
         
         # 用户传输功率 j/slot
-        # __USER_T_POWER_LOWER_B      = 0.001
-        # __USER_T_POWER_HIGHER_B     = 0.005
-        __USER_T_POWER_LOWER_B      = 0.01
-        __USER_T_POWER_HIGHER_B     = 0.05
+        __USER_T_POWER_LOWER_B      = 0.001
+        __USER_T_POWER_HIGHER_B     = 0.005
         self.user_transmit_power    = [np.random.uniform(__USER_T_POWER_LOWER_B, __USER_T_POWER_HIGHER_B)
                                                 for _ in range(self.user_number)]
 
@@ -100,7 +94,7 @@ class DataConfig:
         self.dataset_board_y_size = 800
 
         # 单位：bit
-        self.dataset_user_task_size_l_b = 300 * 1000    # 300KB
+        self.dataset_user_task_size_l_b = 300           # 300 Bit
         self.dataset_user_task_size_h_b = 500 * 1000    # 500KB
 
         # 单位: cycle/bit
@@ -344,7 +338,7 @@ class DataConfig:
 
 if __name__ == '__main__':
     # 创建对象
-    number_of_user = 3
+    number_of_user = 20
     number_of_uav = 6
     feature_norm = True
     dataObj = DataConfig(n_of_user=number_of_user, n_of_uav=number_of_uav)
@@ -353,5 +347,5 @@ if __name__ == '__main__':
     dataObj.save_config('CONFIG_NumOfUser:{}_NumOfUAV:{}.json'.format(number_of_user, number_of_uav))
 
     # 生成数据集:
-    dataObj.generate_dataset(num_of_data_points=3000, saving_path='./TRAINING_NumOfUser:{}_NumOfUAV:{}'.format(number_of_user, number_of_uav), K=10, require_feature_norm=feature_norm)
+    dataObj.generate_dataset(num_of_data_points=2500, saving_path='./TRAINING_NumOfUser:{}_NumOfUAV:{}'.format(number_of_user, number_of_uav), K=10, require_feature_norm=feature_norm)
     dataObj.generate_dataset(num_of_data_points=1000, saving_path='./TESTING_NumOfUser:{}_NumOfUAV:{}'.format(number_of_user, number_of_uav), K=1, require_feature_norm=feature_norm)

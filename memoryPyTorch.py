@@ -21,23 +21,29 @@ class MemoryDNN(nn.Module):
         hidden_feature_size=256,
         learning_rate = 0.01,
         training_interval=10,
-        batch_size=100,
+        batch_size=256,
         dropout=0.2,
         data=None,
         data_eng_cost=None,
         split_len=None,
         convert_output_size=None,
-        data_config=None
+        data_config=None,
+        memory_size=1000
     ):
         super(MemoryDNN, self).__init__()
+        # 模型参数
         self.input_feature_size = input_feature_size
         self.hidden_feature_size = hidden_feature_size
         self.output_size = output_size
-        self.convert_output_size = convert_output_size
-        self.training_interval = training_interval      # learn every training_interval
-        self.lr = learning_rate
         self.batch_size = batch_size
         self.dropout_rate = dropout
+
+        # 学习参数:
+        self.lr = learning_rate
+        self.training_interval = training_interval      # learn every training_interval
+
+        # 生成解参数:
+        self.convert_output_size = convert_output_size
         self.split_len = split_len
         self.data_config = data_config
 
@@ -51,8 +57,15 @@ class MemoryDNN(nn.Module):
         data = torch.Tensor(data)
         self.data_X = data[:, 0: self.input_feature_size]
         self.data_Y = data[:, self.input_feature_size:]
-        self.NUM_OF_DATA = len(data)
         self.data_ENG_COST = torch.Tensor(data_eng_cost)
+        self.NUM_OF_DATA = len(data)
+
+        # ---------
+        # TODO: uncommen this
+        # self.Memory_size    = memory_size
+        # self.Memory_counter = 1
+        # self.data_X = torch.zeros((self.Memory_size, self.input_feature_size), dtype=torch.float32)
+        # self.data_Y = torch.zeros((self.Memory_size, self.data_config.user_number), dtype=torch.float32)
 
         # construct memory network
         self._build_net()
@@ -87,42 +100,62 @@ class MemoryDNN(nn.Module):
         self.optimizer = optim.Adam(self.model.parameters(), lr=self.lr, betas = (0.09,0.999), weight_decay=0.0001) 
         self.criterion = nn.NLLLoss()
     
+    def remember(self, feature, y):
+        replace_idx = self.Memory_counter % self.Memory_size
+        self.data_X[replace_idx, :] = feature
+        self.data_Y[replace_idx, :] = y
+
+        self.Memory_counter += 1
+
+    def encode(self, feature=None, y=None, idx=None):
+        self.remember(feature, y)
+
+        if self.Memory_counter % self.training_interval == 0:
+            self.train()
+    
     def train(self, flag_regenerate_better_sol=False, eng_cost_func=None):
+        # TODO: uncommen this
+        # if self.Memory_counter > self.Memory_size:
+        #     sample_index = np.random.choice(self.Memory_size, size=self.batch_size)
+        # else:
+        #     sample_index = np.random.choice(self.Memory_counter, size=self.batch_size)
+
         # 随机选择batch_size行数据
         sample_index = np.random.choice(self.NUM_OF_DATA, size=self.batch_size)
 
         # 获取相应的x, y
-        x = self.data_X[sample_index]
-        y = self.data_Y[sample_index]
+        x = torch.Tensor(self.data_X[sample_index])
+        y = torch.Tensor(self.data_Y[sample_index])
 
         predict = self.model(x)
         # 将predicth(batch_size, uav_num + 1)
         predict = torch.reshape(predict, (-1, self.split_len))
 
-        # 对这些训练数据生成更好的reference answer
-        if flag_regenerate_better_sol:
-            print('-> Re-Generating Better Solutions')
-            # 将数据复原
-            split_by_data_pair = torch.tensor_split(predict, predict.shape[0] // self.data_config.user_number, dim=0)
-            assert split_by_data_pair[0].shape == (self.data_config.user_number, self.split_len)
-            self.better_sol_count = 0
+        # # 对这些训练数据生成更好的reference answer
+        # if flag_regenerate_better_sol:
+        #     print('-> Re-Generating Better Solutions')
+        #     # 将数据复原
+        #     split_by_data_pair = torch.tensor_split(predict, predict.shape[0] // self.data_config.user_number, dim=0)
+        #     assert split_by_data_pair[0].shape == (self.data_config.user_number, self.split_len)
+        #     self.better_sol_count = 0
 
-            for idx, each_data_pair_predict in enumerate(split_by_data_pair):
-                # 原数据的存储位置
-                ori_idx = sample_index[idx]
-                # 计算predict probability
-                probs = nn.functional.softmax(each_data_pair_predict, dim=1)
-                # 生成更好的y
-                better_sol, eng_cost = self.regenerate_better_solution(probs, self.data_ENG_COST[ori_idx], eng_cost_func, ori_idx)
+        #     for idx, each_data_pair_predict in enumerate(split_by_data_pair):
+        #         # 原数据的存储位置
+        #         ori_idx = sample_index[idx]
+        #         # 计算predict probability
+        #         probs = nn.functional.softmax(each_data_pair_predict, dim=1)
+        #         # 生成更好的y
+        #         better_sol, eng_cost = self.regenerate_better_solution(probs, self.data_ENG_COST[ori_idx], eng_cost_func, ori_idx)
 
-                if better_sol is not None:
-                    # 替换data pair
-                    self.data_Y[ori_idx] = better_sol
-                    self.data_ENG_COST[ori_idx] = eng_cost
-                    # 替换现在的训练数据
-                    y[idx] = better_sol
+        #         if better_sol is not None:
+        #             # print('current cost:{}, new energy cost:{}'.format(self.data_ENG_COST[ori_idx], eng_cost))
+        #             # 替换data pair
+        #             self.data_Y[ori_idx] = better_sol
+        #             self.data_ENG_COST[ori_idx] = eng_cost
+        #             # 替换现在的训练数据
+        #             y[idx] = better_sol
             
-            print('Generate {} better solutions, ratio: {:.2f}%'.format(self.better_sol_count, (100 * self.better_sol_count) / self.batch_size))
+        #     print('Generate {} better solutions, ratio: {:.2f}%'.format(self.better_sol_count, (100 * self.better_sol_count) / self.batch_size))
 
         # 计算LOSS:
         predict = nn.functional.log_softmax(predict, dim=1)

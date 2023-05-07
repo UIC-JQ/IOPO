@@ -32,26 +32,23 @@ if __name__ == "__main__":
         Adaptive K is implemented. K = max(K, K_his[-memory_size])
     '''
     # 创建数据配置
-    number_of_uav = 6                         # numbers of UAVs 
-    number_of_user = 3                        # number of users
+    number_of_uav = 6                          # numbers of UAVs 
+    number_of_user = 20                        # number of users
     inner_path = 'NumOfUser:{}_NumOfUAV:{}'.format(number_of_user, number_of_uav)
     data_config = DataConfig(load_config_from_path='CONFIG_' + inner_path + '.json')
 
     # 训练NN配置
-    number_of_iter     = 2000                                                   # number of time frames
+    number_of_iter     = 4000                                                   # number of time frames
     input_feature_size = None                                                   # dim of training sample
     output_y_size      = number_of_user * (number_of_uav + 1)                   # 神经网络输出dim
     # number_of_uav + 1是因为 [0, 1, 2, 3], 0表示本地，1-3为无人机编号
     cvt_output_size    = number_of_user * number_of_uav                         # 用于生成答案数组 (由0，1)构成
-    regenerate_flag    = 100                                                    # 每多少轮，基于模型预测生成更好的分配方案
-    number_of_iter_for_fitting_final_solutions = 200                            # 用于学习最后的分配方案
 
     # ----------------------------
     # Memory = 1024                # capacity of memory structure
     # decoder_mode = 'MP'          # the quantization mode could be 'OP' (Order-preserving) or 'KNN'
     # K = N                        # initialize K = N
     # Delta = 32                   # Update interval for adaptive K
-
 
     # Load training data
     X_feature_file       = 'TRAINING_NumOfUser:{}_NumOfUAV:{}_feature.csv'.format(number_of_user, number_of_uav)
@@ -60,13 +57,12 @@ if __name__ == "__main__":
     Y_eng_cost_save_path = 'TRAINING_NumOfUser:{}_NumOfUAV:{}_energy_cost.csv'.format(number_of_user, number_of_uav)
     ENV_file_path        = 'TRAINING_NumOfUser:{}_NumOfUAV:{}_record.csv'.format(number_of_user, number_of_uav)
 
-    X = load_from_csv(file_path=X_feature_file, data_type=float)                          # 读取input feature
-    input_feature_size = X[0].size                                                        # 获取input feature的维度
+    X                     = load_from_csv(file_path=X_feature_file, data_type=float)         # 读取input feature
+    input_feature_size    = X[0].size                                                        # 获取input feature的维度
+    Num_of_training_pairs = len(X)                                                           # 获取训练数据量
 
     Y = load_from_csv(file_path=Y_ans_file, data_type=int)                                # 读取reference answer
-
     ENG_COST = load_from_csv(file_path=Y_eng_cost_save_path, data_type=float)             # 读取reference answer的energy cost
-
     ENV      = load_from_csv(file_path=ENV_file_path, data_type=float)                    # 读取环境状态
 
     # 构造(X, Y) data pairs，用于训练
@@ -76,39 +72,42 @@ if __name__ == "__main__":
     model = MemoryDNN(
                     input_feature_size,
                     output_size=output_y_size,
-                    hidden_feature_size=256,
+                    hidden_feature_size=512,
                     learning_rate = 0.001,
                     training_interval=1,
-                    batch_size=256,
-                    dropout=0.1,
+                    batch_size=512,
+                    dropout=0.15,
                     data = data_pairs,
                     split_len = number_of_uav + 1,
                     convert_output_size=cvt_output_size,
                     data_config=data_config,
                     data_eng_cost=ENG_COST
-                    )
+    )
 
     energy_cost_function = eng_cost_wrapper_func(ENV, data_config)
     setup_seed()
     # start training
-
     # -------------------------------------------------------
-    # 1. without finding better solution:
     for i in tqdm(range(number_of_iter)):
+        # idx = i % N
+
+        # predict_probability = model.decode(X[i], data_config)
+        # generate_better_sol(predict_probability)
+
         model.train()
     # -------------------------------------------------------
-        
-    # -------------------------------------------------------
-    # 2.with finding better solution 
     # for i in tqdm(range(number_of_iter)):
-    #     if i % regenerate_flag == 0 and i != 0:
-    #         model.train(flag_regenerate_better_sol=True, eng_cost_func=energy_cost_function)
-    #     else:
-    #         model.train()
+    #     idx = i % Num_of_training_pairs
 
-    # for _ in tqdm(range(number_of_iter_for_fitting_final_solutions)):
-    #     model.train()
-    # -------------------------------------------------------
+    #     predict_probability = model.decode(X[i], data_config)
+    #     eng_cost, new_y = generate_better_sol(predict_probability)
+
+    #     if eng_cost < ENG_COST[idx]:
+    #         ENG_COST[idx] = eng_cost
+    #         Y[idx]        = new_y
+
+    #     model.encode(feature=X[idx], y=Y[idx], idx=idx)
+        
         
 
     model.plot_cost()
