@@ -8,7 +8,7 @@ import math # cos() for Rastrigin
 import copy # array-copying convenience
 import sys # max float
 
-def whale(h, b, data_config, need_stats=False):
+def whale(h, b, data_config, need_stats=False, is_test=False):
     
     # for equation 1 - 3
     '''
@@ -362,8 +362,12 @@ def whale(h, b, data_config, need_stats=False):
     num_whales = data_config.optimize_num_whales
     max_iter = data_config.optimize_max_iter
 
-    best_position = woa(fitness, max_iter, num_whales, dim,0,2*np.pi)
-    err = fitness(best_position)
+
+    if is_test:
+        best_position = woa(fitness, max_iter, num_whales, dim,0,2*np.pi)
+    else:
+        best_position = np.zeros(dim)
+        err = fitness(best_position)
 
 
     #WOA completed

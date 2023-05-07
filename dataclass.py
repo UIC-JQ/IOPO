@@ -43,19 +43,25 @@ class DataConfig:
         self.IRS_z_number             = 5#IRS z-axis refector
 
         # the computation rate of users (local) UEDs cycles/slot
-        __USER_C_LOWER_BOUND        = 5000
-        __USER_C_HIGHER_BOUND       = 20000
+        # __USER_C_LOWER_BOUND        = 5000
+        # __USER_C_HIGHER_BOUND       = 20000
+        __USER_C_LOWER_BOUND        = 10000
+        __USER_C_HIGHER_BOUND       = 30000
         self.user_computational_capacity = [np.random.randint(__USER_C_LOWER_BOUND, __USER_C_HIGHER_BOUND)
                                                  for _ in range(self.user_number)]    
         # 用户计算功率 j/slot
-        __USER_C_POWER_LOWER_B      = 0.01
-        __USER_C_POWER_HIGHER_B     = 0.05
+        # __USER_C_POWER_LOWER_B      = 0.01
+        # __USER_C_POWER_HIGHER_B     = 0.05
+        __USER_C_POWER_LOWER_B      = 0.001
+        __USER_C_POWER_HIGHER_B     = 0.005
         self.user_computation_power    = [np.random.uniform(__USER_C_POWER_LOWER_B, __USER_C_POWER_HIGHER_B)
                                                  for _ in range(self.user_number)]
         
         # 用户传输功率 j/slot
-        __USER_T_POWER_LOWER_B      = 0.001
-        __USER_T_POWER_HIGHER_B     = 0.005
+        # __USER_T_POWER_LOWER_B      = 0.001
+        # __USER_T_POWER_HIGHER_B     = 0.005
+        __USER_T_POWER_LOWER_B      = 0.01
+        __USER_T_POWER_HIGHER_B     = 0.05
         self.user_transmit_power    = [np.random.uniform(__USER_T_POWER_LOWER_B, __USER_T_POWER_HIGHER_B)
                                                 for _ in range(self.user_number)]
 
@@ -122,11 +128,11 @@ class DataConfig:
         # fi = (distance_to_uavs (用户距离无人机的距离) size=uav_number, 
         #       task_package_size (分配给用户的task包的大小, 影响传输速度) size = 1                  [x]
         #       user_transfer_power (用户传输能量消耗功率) size = 1                                [x]
-        #       task_finish_time_threshold (允许完成任务的时间(不超过这个时间都可以)) size = 1       [x]
-        #       time_local_time_need (本地完成任务所需要的时间) size = 1                           [x]
-        #       eng_cost_user_loacl_compute（用户本地计算的能量消耗) size = 1                      [x]
-        #       time_each_uav_finish_task (在每个无人机上完成task需要的时间) size=uav_number        [x]
-        #       eng_cost_uavs_compute (每个无人机上完成task需要消耗的能量) size=uav_number          [x]
+        #       task_finish_time_threshold (允许完成任务的时间(不超过这个时间都可以)) size = 1        [x]
+        #       time_local_time_need (本地完成任务所需要的时间) size = 1                            [x]
+        #       eng_cost_user_loacl_compute（用户本地计算的能量消耗) size = 1                       [x]
+        #       time_each_uav_finish_task (在每个无人机上完成task需要的时间) size=uav_number         [x]
+        #       eng_cost_uavs_compute (每个无人机上完成task需要消耗的能量) size=uav_number           [x]
         #       )
         # size_of_fi = (uav_number * 3 + 1 * 5)
         # size_of x_i = f_i * user_number
@@ -336,7 +342,6 @@ class DataConfig:
 
         return e_best, sol_
 
-
 if __name__ == '__main__':
     # 创建对象
     number_of_user = 3
@@ -348,5 +353,5 @@ if __name__ == '__main__':
     dataObj.save_config('CONFIG_NumOfUser:{}_NumOfUAV:{}.json'.format(number_of_user, number_of_uav))
 
     # 生成数据集:
-    dataObj.generate_dataset(num_of_data_points=300, saving_path='./TRAINING_NumOfUser:{}_NumOfUAV:{}'.format(number_of_user, number_of_uav), K=20, require_feature_norm=feature_norm)
-    dataObj.generate_dataset(num_of_data_points=100, saving_path='./TESTING_NumOfUser:{}_NumOfUAV:{}'.format(number_of_user, number_of_uav), K=1, require_feature_norm=feature_norm)
+    dataObj.generate_dataset(num_of_data_points=3000, saving_path='./TRAINING_NumOfUser:{}_NumOfUAV:{}'.format(number_of_user, number_of_uav), K=10, require_feature_norm=feature_norm)
+    dataObj.generate_dataset(num_of_data_points=1000, saving_path='./TESTING_NumOfUser:{}_NumOfUAV:{}'.format(number_of_user, number_of_uav), K=1, require_feature_norm=feature_norm)

@@ -10,23 +10,13 @@ from tqdm import tqdm
 
 from dataclass import DataConfig
 from opt3 import whale
+from util import load_from_csv, setup_seed
 
 def save_to_txt(rate_his, file_path):
     with open(file_path, 'w') as f:
         for rate in rate_his:
             f.write("%s \n" % rate)
 
-def load_from_csv(file_path=None, data_type=None):
-    with open(file_path, mode='r') as f:
-        reader = csv.reader(f, delimiter=',')
-        data = []
-
-        for row in reader:
-            data.append(row)
-            
-        data = np.array(data, dtype=data_type)
-    
-    return data
 
 def eng_cost_wrapper_func(records, data_config):
     def inner(idx, allocate_plan):
@@ -48,15 +38,16 @@ if __name__ == "__main__":
     data_config = DataConfig(load_config_from_path='CONFIG_' + inner_path + '.json')
 
     # 训练NN配置
-    number_of_iter     = 1000                                                   # number of time frames
+    number_of_iter     = 2000                                                   # number of time frames
     input_feature_size = None                                                   # dim of training sample
     output_y_size      = number_of_user * (number_of_uav + 1)                   # 神经网络输出dim
     # number_of_uav + 1是因为 [0, 1, 2, 3], 0表示本地，1-3为无人机编号
-    cvt_output_size    = number_of_user * number_of_uav
-    # 用于生成答案数组 (由0，1)构成
+    cvt_output_size    = number_of_user * number_of_uav                         # 用于生成答案数组 (由0，1)构成
+    regenerate_flag    = 100                                                    # 每多少轮，基于模型预测生成更好的分配方案
+    number_of_iter_for_fitting_final_solutions = 200                            # 用于学习最后的分配方案
 
     # ----------------------------
-    # Memory = 1024                  # capacity of memory structure
+    # Memory = 1024                # capacity of memory structure
     # decoder_mode = 'MP'          # the quantization mode could be 'OP' (Order-preserving) or 'KNN'
     # K = N                        # initialize K = N
     # Delta = 32                   # Update interval for adaptive K
@@ -69,14 +60,14 @@ if __name__ == "__main__":
     Y_eng_cost_save_path = 'TRAINING_NumOfUser:{}_NumOfUAV:{}_energy_cost.csv'.format(number_of_user, number_of_uav)
     ENV_file_path        = 'TRAINING_NumOfUser:{}_NumOfUAV:{}_record.csv'.format(number_of_user, number_of_uav)
 
-    X = load_from_csv(file_path=X_feature_file, data_type=float)
-    input_feature_size = X[0].size
+    X = load_from_csv(file_path=X_feature_file, data_type=float)                          # 读取input feature
+    input_feature_size = X[0].size                                                        # 获取input feature的维度
 
-    Y = load_from_csv(file_path=Y_ans_file, data_type=int)
+    Y = load_from_csv(file_path=Y_ans_file, data_type=int)                                # 读取reference answer
 
-    ENG_COST = load_from_csv(file_path=Y_eng_cost_save_path, data_type=float)
+    ENG_COST = load_from_csv(file_path=Y_eng_cost_save_path, data_type=float)             # 读取reference answer的energy cost
 
-    ENV      = load_from_csv(file_path=ENV_file_path, data_type=float)
+    ENV      = load_from_csv(file_path=ENV_file_path, data_type=float)                    # 读取环境状态
 
     # 构造(X, Y) data pairs，用于训练
     data_pairs = np.concatenate((X, Y), axis=1)
@@ -89,7 +80,7 @@ if __name__ == "__main__":
                     learning_rate = 0.001,
                     training_interval=1,
                     batch_size=256,
-                    dropout=0.2,
+                    dropout=0.1,
                     data = data_pairs,
                     split_len = number_of_uav + 1,
                     convert_output_size=cvt_output_size,
@@ -98,14 +89,26 @@ if __name__ == "__main__":
                     )
 
     energy_cost_function = eng_cost_wrapper_func(ENV, data_config)
+    setup_seed()
     # start training
-    for i in tqdm(range(number_of_iter)):
-        if i % 100 == 0 and i != 0:
-            model.train(flag_regenerate_better_sol=True, eng_cost_func=energy_cost_function)
-        else:
-            model.train()
 
-        # model.train()
+    # -------------------------------------------------------
+    # 1. without finding better solution:
+    for i in tqdm(range(number_of_iter)):
+        model.train()
+    # -------------------------------------------------------
+        
+    # -------------------------------------------------------
+    # 2.with finding better solution 
+    # for i in tqdm(range(number_of_iter)):
+    #     if i % regenerate_flag == 0 and i != 0:
+    #         model.train(flag_regenerate_better_sol=True, eng_cost_func=energy_cost_function)
+    #     else:
+    #         model.train()
+
+    # for _ in tqdm(range(number_of_iter_for_fitting_final_solutions)):
+    #     model.train()
+    # -------------------------------------------------------
         
 
     model.plot_cost()

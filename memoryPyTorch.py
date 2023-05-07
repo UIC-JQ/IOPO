@@ -84,7 +84,7 @@ class MemoryDNN(nn.Module):
 
     
     def _build_opt_tools(self):
-        self.optimizer = optim.Adam(self.model.parameters(), lr=self.lr,betas = (0.09,0.999),weight_decay=0.0001) 
+        self.optimizer = optim.Adam(self.model.parameters(), lr=self.lr, betas = (0.09,0.999), weight_decay=0.0001) 
         self.criterion = nn.NLLLoss()
     
     def train(self, flag_regenerate_better_sol=False, eng_cost_func=None):
@@ -94,7 +94,6 @@ class MemoryDNN(nn.Module):
         # 获取相应的x, y
         x = self.data_X[sample_index]
         y = self.data_Y[sample_index]
-
 
         predict = self.model(x)
         # 将predicth(batch_size, uav_num + 1)
@@ -109,7 +108,7 @@ class MemoryDNN(nn.Module):
             self.better_sol_count = 0
 
             for idx, each_data_pair_predict in enumerate(split_by_data_pair):
-                # 愿数据的位置
+                # 原数据的存储位置
                 ori_idx = sample_index[idx]
                 # 计算predict probability
                 probs = nn.functional.softmax(each_data_pair_predict, dim=1)
@@ -123,7 +122,7 @@ class MemoryDNN(nn.Module):
                     # 替换现在的训练数据
                     y[idx] = better_sol
             
-            print('Generate {} better solutions, ratio: {:.2f}'.format(self.better_sol_count, (100 * self.better_sol_count) / self.batch_size))
+            print('Generate {} better solutions, ratio: {:.2f}%'.format(self.better_sol_count, (100 * self.better_sol_count) / self.batch_size))
 
         # 计算LOSS:
         predict = nn.functional.log_softmax(predict, dim=1)
@@ -147,7 +146,7 @@ class MemoryDNN(nn.Module):
         return torch.load(model_path)
     
     def generate_answer(self, input, data_config):
-        x = torch.Tensor(input)
+        x = torch.Tensor(input).float()
 
         predict = self.model(x)
         answer = np.zeros(self.convert_output_size)
@@ -236,8 +235,6 @@ class MemoryDNN(nn.Module):
         # (1, self.output_size)
         threshold_0 = torch.full(reshaped_prob.shape, fill_value=threshold_v, dtype=torch.float32)
         threshold_rank, idx_list = torch.sort(nn.functional.pairwise_distance(threshold_0, reshaped_prob, p=2))
-        # print(threshold_rank)
-        # print(idx_list)
 
         new_sol = torch.zeros(self.convert_output_size)
         new_sol_idx = torch.argmax(predict_prob, dim=1)
@@ -301,4 +298,3 @@ class MemoryDNN(nn.Module):
         plt.ylabel('Training Loss')
         plt.xlabel('Time Frames')
         plt.savefig('train_loss.png')
-

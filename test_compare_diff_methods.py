@@ -5,6 +5,7 @@ from opt3 import whale
 from tqdm import tqdm
 
 from memoryPyTorch import MemoryDNN
+from util import load_from_csv, setup_seed
 
 def try_method(X, method, method_name, **kws):
     avg_eng_cost, overtime_records_ratio, avg_overtime_ratio, avg_overtime_people = method(X, data_config, **kws)
@@ -50,6 +51,7 @@ def compare_method(f):
             __allocate_plan = f(record, data_config, data_idx=idx, **kws)
             # 计算energy cost
             _, energy, overtime_logs = whale(record, __allocate_plan, data_config, need_stats=True)
+            print('Allocation Plan: {}, Eng cost: {}'.format(__allocate_plan, energy))
 
             if overtime_logs:
             # 统计超时数据stat
@@ -80,37 +82,17 @@ if __name__ == '__main__':
 
     # LOAD Test data:
     path = 'TESTING_NumOfUser:3_NumOfUAV:6_record.csv'
-    with open(path, mode='r') as file:
-        n = 100
-        # 创建CSV读取器，指定分隔符为逗号
-        reader = csv.reader(file, delimiter=',')
-        # 读取CSV文件的数据到一个列表中
-        X = []
-        for row in reader:
-            if n <= 0: break
-            X.append(row)
-            n -= 1
-        X = np.array(X, dtype=float)
+    Record = load_from_csv(path, data_type=float)
     
-
     X_feature_file = 'TESTING_NumOfUser:3_NumOfUAV:6_feature.csv'
+    feature = load_from_csv(X_feature_file, data_type=float)
 
-    with open(X_feature_file, mode='r') as f:
-        n = 100
-        reader = csv.reader(f, delimiter=',')
-        feature = []
+    setup_seed()
 
-        for row in reader:
-            if n <= 0: break
-            feature.append(row)
-            n -= 1 
-        feature = np.array(feature, dtype=float)
-    
     # OURS:
     model = MemoryDNN.load_model('MODEL_NumOfUser:3_NumOfUAV:6.pt')
-    try_method(X, compare_method(allocate_plan_NN_model), 'NN Model', model=model, input_feature=feature)
-
-    try_method(X, compare_method(allocate_plan_all_upload_random), 'ALL UPLOAD RANDOM (K=1)', K=1)
-    try_method(X, compare_method(allocate_plan_all_upload_random), 'ALL UPLOAD RANDOM (K=10)', K=10)
-    try_method(X, compare_method(allocate_plan_local_and_upload_random), 'BOTH LOCAL AND UPLOAD RANDOM (K=10)', K=10)
-    try_method(X, compare_method(allocate_plan_all_local), 'ALL LOCAL', K=1)
+    try_method(Record, compare_method(allocate_plan_NN_model), 'NN Model', model=model, input_feature=feature)
+    try_method(Record, compare_method(allocate_plan_all_upload_random), 'ALL UPLOAD RANDOM (K=1)', K=1)
+    try_method(Record, compare_method(allocate_plan_all_upload_random), 'ALL UPLOAD RANDOM (K=5)', K=5)
+    try_method(Record, compare_method(allocate_plan_local_and_upload_random), 'BOTH LOCAL AND UPLOAD RANDOM (K=5)', K=5)
+    try_method(Record, compare_method(allocate_plan_all_local), 'ALL LOCAL', K=1)
