@@ -48,7 +48,7 @@ if __name__ == "__main__":
     data_config = DataConfig(load_config_from_path='CONFIG_' + inner_path + '.json')
 
     # 训练NN配置
-    number_of_iter     = 4000                                                   # number of time frames
+    number_of_iter     = 1000                                                   # number of time frames
     input_feature_size = None                                                   # dim of training sample
     output_y_size      = number_of_user * (number_of_uav + 1)                   # 神经网络输出dim
     # number_of_uav + 1是因为 [0, 1, 2, 3], 0表示本地，1-3为无人机编号
@@ -86,10 +86,10 @@ if __name__ == "__main__":
                     input_feature_size,
                     output_size=output_y_size,
                     hidden_feature_size=256,
-                    learning_rate = 0.0001,
+                    learning_rate = 0.001,
                     training_interval=1,
                     batch_size=256,
-                    dropout=0.1,
+                    dropout=0.2,
                     data = data_pairs,
                     split_len = number_of_uav + 1,
                     convert_output_size=cvt_output_size,

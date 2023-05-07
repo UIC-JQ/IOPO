@@ -114,7 +114,7 @@ class DataConfig:
         self.optimize_max_iter = 5
 
         
-    def generate_dataset(self, num_of_data_points=5000, saving_path=None, K=None):
+    def generate_dataset(self, num_of_data_points=5000, saving_path=None, K=None, require_feature_norm=True):
         # format: (user1_x, user1_y, user_1_z, user2_x, user_2_y, user2_z, ..., user_1_task_size, user_1_cpu_needed, user_1_tolerance)
         data_for_computing_energy_cost = [] 
 
@@ -139,7 +139,14 @@ class DataConfig:
 
         for _ in tqdm(range(num_of_data_points)):
             eng_cost = []
-            feature = []
+            feature_user_distance = []
+            feature_task_size = []
+            feature_user_transmit_power = []
+            feature_compute_time_threshold = []
+            feature_local_compute_time = []
+            feature_eng_cost_local_compute = []
+            feature__uav_compute_time = []
+            feature__eng_cost_uav_compute = []
 
             # 生成用户坐标：(x, y, z)
             for i in range(self.user_number):
@@ -152,7 +159,7 @@ class DataConfig:
                     # 用户i对无人机j的距离
                     dist = np.linalg.norm(np.array([x, y, 0]) - self.uav_coordinate[idx])
                     # print('point: {}, uav co: {}, distance to uav: {} is: {}'.format((x,y,0), self.uav_coordinate[idx], idx, dist))
-                    feature.append(dist)
+                    feature_user_distance.append(dist)
             
             # 生成task info
             for i in range(self.user_number):
@@ -178,32 +185,45 @@ class DataConfig:
                 # 生成Feature:
 
                 # FEATURE: task_package_size (分配给用户的task包的大小, 影响传输速度) 
-                feature.append(task_size)
+                feature_task_size.append(task_size)
 
                 # FEATURE: user_transfer_power (用户传输能量消耗功率)
-                feature.append(self.user_transmit_power[i])
+                feature_user_transmit_power.append(self.user_transmit_power[i])
 
                 # FEATURE: task_finish_time_threshold (允许完成任务的时间(不超过这个时间都可以))
-                feature.append(compute_time_allowed)
+                feature_compute_time_threshold.append(compute_time_allowed)
 
                 # FEATURE: time_local_time_need (本地完成任务所需要的时间)
-                feature.append(__local_compute_time)
+                feature_local_compute_time.append(__local_compute_time)
 
                 # FEATURE: eng_cost_user_loacl_compute（用户本地计算的能量消耗)
-                feature.append(__local_compute_time * self.user_computation_power[i])
+                feature_eng_cost_local_compute.append(__local_compute_time * self.user_computation_power[i])
 
                 for idx in range(self.uav_number):
                     # FEATURE: time_each_uav_finish_task (在每个无人机上完成task需要的时间)
                     t = cpu_cycles_need / self.uav_computational_capacity[idx]
-                    feature.append(t)
+                    feature__uav_compute_time.append(t)
 
                     # print(compute_time_allowed, __local_compute_time, t)
-
                     # FEATURE: eng_cost_uavs_compute (每个无人机上完成task需要消耗的能量)
-                    feature.append(t * self.uav_computational_power[idx])
+                    feature__eng_cost_uav_compute.append(t * self.uav_computational_power[idx])
 
             data_for_computing_energy_cost.append(eng_cost)
-            data_X_features.append(feature)
+
+            Features = [feature_user_distance,
+                        feature_task_size,
+                        feature_user_transmit_power,
+                        feature_compute_time_threshold,
+                        feature_local_compute_time,
+                        feature_eng_cost_local_compute,
+                        feature__uav_compute_time,
+                        feature__eng_cost_uav_compute,
+            ]
+
+            if require_feature_norm:
+                data_X_features.append(np.concatenate([self.__normalize_feature(f) for f in Features]))
+            else:
+                data_X_features.append(np.concatenate(Features))
 
             # 生成当前record的解 (由0, 1构成，每个user最多有一个1)
             e_cost, sol = self.random_sample_lower_eng_cost_plan(eng_cost, K=K, exclude_local_options=False)
@@ -229,6 +249,16 @@ class DataConfig:
         self.__save_to_csv(data_X_features, saving_path + '_feature')
         self.__save_to_csv(data_Y, saving_path + '_solution')
         self.__save_to_csv(data_eng_cost, saving_path + '_energy_cost')
+    
+    def __normalize_feature(self, F):
+        F = np.array(F)
+
+        mean = np.mean(F)
+        std = np.std(F)
+
+        normalized = (F - mean) / std
+
+        return normalized
     
     def __save_to_csv(self, data, file_name, file_type='.csv'):
         with open(file_name + file_type, mode='w+', newline='') as f:
@@ -311,11 +341,12 @@ if __name__ == '__main__':
     # 创建对象
     number_of_user = 3
     number_of_uav = 6
+    feature_norm = True
     dataObj = DataConfig(n_of_user=number_of_user, n_of_uav=number_of_uav)
     
     # 保存config
     dataObj.save_config('CONFIG_NumOfUser:{}_NumOfUAV:{}.json'.format(number_of_user, number_of_uav))
 
     # 生成数据集:
-    dataObj.generate_dataset(num_of_data_points=10000, saving_path='./TRAINING_NumOfUser:{}_NumOfUAV:{}'.format(number_of_user, number_of_uav), K=100)
-    dataObj.generate_dataset(num_of_data_points=5000, saving_path='./TESTING_NumOfUser:{}_NumOfUAV:{}'.format(number_of_user, number_of_uav), K=1)
+    dataObj.generate_dataset(num_of_data_points=300, saving_path='./TRAINING_NumOfUser:{}_NumOfUAV:{}'.format(number_of_user, number_of_uav), K=20, require_feature_norm=feature_norm)
+    dataObj.generate_dataset(num_of_data_points=100, saving_path='./TESTING_NumOfUser:{}_NumOfUAV:{}'.format(number_of_user, number_of_uav), K=1, require_feature_norm=feature_norm)

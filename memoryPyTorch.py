@@ -102,9 +102,11 @@ class MemoryDNN(nn.Module):
 
         # 对这些训练数据生成更好的reference answer
         if flag_regenerate_better_sol:
+            print('-> Re-Generating Better Solutions')
             # 将数据复原
             split_by_data_pair = torch.tensor_split(predict, predict.shape[0] // self.data_config.user_number, dim=0)
             assert split_by_data_pair[0].shape == (self.data_config.user_number, self.split_len)
+            self.better_sol_count = 0
 
             for idx, each_data_pair_predict in enumerate(split_by_data_pair):
                 # 愿数据的位置
@@ -120,6 +122,8 @@ class MemoryDNN(nn.Module):
                     self.data_ENG_COST[ori_idx] = eng_cost
                     # 替换现在的训练数据
                     y[idx] = better_sol
+            
+            print('Generate {} better solutions, ratio: {:.2f}'.format(self.better_sol_count, (100 * self.better_sol_count) / self.batch_size))
 
         # 计算LOSS:
         predict = nn.functional.log_softmax(predict, dim=1)
@@ -254,7 +258,7 @@ class MemoryDNN(nn.Module):
         if min_eng_cost > energy_cost:
             min_eng_cost = energy_cost
             final_ans = torch.tensor(T, dtype=torch.long)
-            print(1)
+            self.better_sol_count += 1
         
         return final_ans, min_eng_cost
     
