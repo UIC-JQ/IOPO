@@ -1,12 +1,3 @@
-#  #################################################################
-#  This file contains the main DROO operations, including building DNN, 
-#  Storing data sample, Training DNN, and generating quantized binary offloading decisions.
-
-#  version 1.0 -- February 2020. Written based on Tensorflow 2 by Weijian Pan and 
-#  Liang Huang (lianghuang AT zjut.edu.cn)
-#  ###################################################################
-
-from __future__ import print_function
 import torch
 import torch.optim as optim
 import torch.nn as nn
@@ -23,8 +14,6 @@ class MemoryDNN(nn.Module):
         training_interval=10,
         batch_size=256,
         dropout=0.2,
-        data=None,
-        data_eng_cost=None,
         split_len=None,
         convert_output_size=None,
         data_config=None,
@@ -44,7 +33,7 @@ class MemoryDNN(nn.Module):
 
         # 生成解参数:
         self.convert_output_size = convert_output_size
-        self.split_len = split_len
+        self.choice_len = split_len
         self.data_config = data_config
 
         # store all binary actions
@@ -54,30 +43,20 @@ class MemoryDNN(nn.Module):
         self.cost_his = []
 
         # 准备训练数据
-        data = torch.Tensor(data)
-        self.data_X = data[:, 0: self.input_feature_size]
-        self.data_Y = data[:, self.input_feature_size:]
-        self.data_ENG_COST = torch.Tensor(data_eng_cost)
-        self.NUM_OF_DATA = len(data)
-
         # ---------
-        # TODO: uncommen this
-        # self.Memory_size    = memory_size
-        # self.Memory_counter = 1
-        # self.data_X = torch.zeros((self.Memory_size, self.input_feature_size), dtype=torch.float32)
-        # self.data_Y = torch.zeros((self.Memory_size, self.data_config.user_number), dtype=torch.float32)
+        self.Memory_size    = memory_size
+        self.Memory_counter = 0
+        self.data_X = torch.zeros((self.Memory_size, self.input_feature_size), dtype=torch.float32)
+        self.data_Y = torch.zeros((self.Memory_size, self.data_config.user_number), dtype=torch.float32)
 
         # construct memory network
         self._build_net()
         self._build_opt_tools()
 
     def _build_net(self):
-        # (input_size, h//2) -> (h//2, h) -> (h, h) * 5 -> (h, h//2) -> (h//2, output_size)
+        # (input_feature_size, h) -> (h, h) * 4 -> (h, output_size)
         self.model = nn.Sequential(
-                nn.Linear(self.input_feature_size, self.hidden_feature_size // 2),
-                nn.Tanh(),
-                nn.Dropout(self.dropout_rate),
-                nn.Linear(self.hidden_feature_size // 2, self.hidden_feature_size),
+                nn.Linear(self.input_feature_size, self.hidden_feature_size),
                 nn.Tanh(),
                 nn.Dropout(self.dropout_rate),
                 nn.Linear(self.hidden_feature_size, self.hidden_feature_size),
@@ -89,10 +68,10 @@ class MemoryDNN(nn.Module):
                 nn.Linear(self.hidden_feature_size, self.hidden_feature_size),
                 nn.Tanh(),
                 nn.Dropout(self.dropout_rate),
-                nn.Linear(self.hidden_feature_size, self.hidden_feature_size //2),
+                nn.Linear(self.hidden_feature_size, self.hidden_feature_size),
                 nn.Tanh(),
                 nn.Dropout(self.dropout_rate),
-                nn.Linear(self.hidden_feature_size // 2, self.output_size),
+                nn.Linear(self.hidden_feature_size, self.output_size),
         )
 
     
@@ -100,7 +79,12 @@ class MemoryDNN(nn.Module):
         self.optimizer = optim.Adam(self.model.parameters(), lr=self.lr, betas = (0.09,0.999), weight_decay=0.0001) 
         self.criterion = nn.NLLLoss()
     
-    def remember(self, feature, y):
+    def save_data_to_memory(self, feature, y):
+        """
+        将新数据放入Memory,
+        如果有空间则enque
+        如果没有空间，则换出一个memory中的数据
+        """
         replace_idx = self.Memory_counter % self.Memory_size
         self.data_X[replace_idx, :] = feature
         self.data_Y[replace_idx, :] = y
@@ -108,58 +92,30 @@ class MemoryDNN(nn.Module):
         self.Memory_counter += 1
 
     def encode(self, feature=None, y=None, idx=None):
-        self.remember(feature, y)
+        self.save_data_to_memory(feature, y)
 
-        if self.Memory_counter % self.training_interval == 0:
+        if self.Memory_counter > 0 and self.Memory_counter % self.training_interval == 0:
             self.train()
     
-    def train(self, flag_regenerate_better_sol=False, eng_cost_func=None):
-        # TODO: uncommen this
-        # if self.Memory_counter > self.Memory_size:
-        #     sample_index = np.random.choice(self.Memory_size, size=self.batch_size)
-        # else:
-        #     sample_index = np.random.choice(self.Memory_counter, size=self.batch_size)
-
+    def train(self):
         # 随机选择batch_size行数据
-        sample_index = np.random.choice(self.NUM_OF_DATA, size=self.batch_size)
-
+        if self.Memory_counter > self.Memory_size:
+            sample_index = np.random.choice(self.Memory_size, size=self.batch_size)
+        else:
+            sample_index = np.random.choice(self.Memory_counter, size=self.batch_size)
+        
         # 获取相应的x, y
-        x = torch.Tensor(self.data_X[sample_index])
-        y = torch.Tensor(self.data_Y[sample_index])
+        x = self.data_X[sample_index]
+        y = self.data_Y[sample_index]
 
-        predict = self.model(x)
-        # 将predicth(batch_size, uav_num + 1)
-        predict = torch.reshape(predict, (-1, self.split_len))
-
-        # # 对这些训练数据生成更好的reference answer
-        # if flag_regenerate_better_sol:
-        #     print('-> Re-Generating Better Solutions')
-        #     # 将数据复原
-        #     split_by_data_pair = torch.tensor_split(predict, predict.shape[0] // self.data_config.user_number, dim=0)
-        #     assert split_by_data_pair[0].shape == (self.data_config.user_number, self.split_len)
-        #     self.better_sol_count = 0
-
-        #     for idx, each_data_pair_predict in enumerate(split_by_data_pair):
-        #         # 原数据的存储位置
-        #         ori_idx = sample_index[idx]
-        #         # 计算predict probability
-        #         probs = nn.functional.softmax(each_data_pair_predict, dim=1)
-        #         # 生成更好的y
-        #         better_sol, eng_cost = self.regenerate_better_solution(probs, self.data_ENG_COST[ori_idx], eng_cost_func, ori_idx)
-
-        #         if better_sol is not None:
-        #             # print('current cost:{}, new energy cost:{}'.format(self.data_ENG_COST[ori_idx], eng_cost))
-        #             # 替换data pair
-        #             self.data_Y[ori_idx] = better_sol
-        #             self.data_ENG_COST[ori_idx] = eng_cost
-        #             # 替换现在的训练数据
-        #             y[idx] = better_sol
-            
-        #     print('Generate {} better solutions, ratio: {:.2f}%'.format(self.better_sol_count, (100 * self.better_sol_count) / self.batch_size))
+        # shape: (batch_size, output_dim)
+        predict = self.model(x)             
+        # 将predict 转为(N, choice的数量)
+        predict = torch.reshape(predict, (-1, self.choice_len))
 
         # 计算LOSS:
         predict = nn.functional.log_softmax(predict, dim=1)
-        # 将(batch_size, n_of_user) 垂直展开，结果为b_size * n_of_user行，1列.
+        # 将(batch_size, y_dim) 垂直展开，shape: (N)
         y = torch.reshape(y, (-1, ))
         loss = self.criterion(predict, y.long())
 
@@ -179,38 +135,120 @@ class MemoryDNN(nn.Module):
         return torch.load(model_path)
     
     def generate_answer(self, input, data_config):
-        x = torch.Tensor(input).float()
+        ans_idx = self.predict_answer_index(torch.Tensor(input).float())
 
-        predict = self.model(x)
-        answer = np.zeros(self.convert_output_size)
-
-        predict = torch.reshape(predict, (-1, self.split_len))
-        predict = nn.functional.softmax(predict, dim=1)
-        ans = torch.argmax(predict, dim=1)
-
-        for i, idx in enumerate(ans):
-            base = i * data_config.uav_number
-            if idx == 0:
-                continue
-            answer[idx + base - 1] = 1
+        answer = self.convert_answer_index_to_zero_one_answer_vector(ans_idx, data_config)
         
         return answer
+    
+    def convert_answer_index_to_zero_one_answer_vector(self, ans_idxs, data_config):
+        answer_vector = np.zeros(self.convert_output_size)
+
+        for i, a_idx in enumerate(ans_idxs):
+            if a_idx == 0:
+                continue
+
+            base = i * data_config.uav_number
+            answer_vector[base + a_idx - 1] = 1
+
+        return answer_vector
+
+    
+    def predict_answer_index(self, input):
+        """
+        生成给定input的模型预测answer
+        """
+        predict = self.model(input)
+
+        predict = torch.reshape(predict, (-1, self.choice_len))
+        predict_prob = nn.functional.softmax(predict, dim=1)
+
+        ans = torch.argmax(predict_prob, dim=1).flatten()
+
+        return ans
 
 
-    def decode(self, h, k = 1, mode = 'OP'):
-        # to have batch dimension when feed into Tensor
-        h = torch.Tensor(h[np.newaxis, :])
-        self.model.eval()
-        m_pred = self.model(h)
-        m_pred = m_pred.detach().numpy()
-        if mode == 'OP':
-            return self.knm(m_pred[0], k) #op
-        elif mode == 'KNN':
-            return self.knn(m_pred[0], k) #knn
-        elif mode == 'MP':
-            return self.mp(m_pred[0], k) #MP
-        else:
-            print("The action selection must be 'OP' or 'KNN'")
+    def decode(self, feature, K=1, threshold_v=0.5, eng_compute_func=None, idx=None):
+        predict = torch.reshape(self.model(feature), (-1, self.choice_len))
+        prob = torch.nn.functional.softmax(predict, dim=1)
+        flatten_prob = prob.view(-1, 1)
+
+        threshold_0 = torch.full(flatten_prob.shape, fill_value=threshold_v, dtype=torch.float32)
+        threshold_rank, idx_list = torch.sort(nn.functional.pairwise_distance(threshold_0, flatten_prob, p=2))
+
+        eng_cost, final_allocation_plan = float('inf'), None
+        CUTOFF_PROB = 0.5
+
+        # 生成K-1个新解
+        for i in range(K-1):
+            new_sol = np.zeros(self.convert_output_size)
+            new_sol_tensor = []
+
+            idx = idx_list[i]
+            threshold = flatten_prob[idx]
+
+            for ii, row in enumerate(prob):
+                selected = False
+
+                for ij, prob_compare in enumerate(row):
+                    if prob_compare > threshold:
+                        # 本地满足要求:
+                        if ij == 0: 
+                            new_sol_tensor.append(0)
+                            selected = True
+                            break
+                        # 计算无人机编号:
+                        new_sol[ii * self.data_config.user_number + ij - 1] = 1
+                        new_sol_tensor.append(ij)
+                        selected = True
+                        break
+                    elif prob_compare == threshold:
+                        if threshold > CUTOFF_PROB:
+                            continue
+                        # 本地满足要求:
+                        if ij == 0: 
+                            new_sol_tensor.append(0)
+                            selected = True
+                            break
+                        # 计算无人机编号:
+                        new_sol[ii * self.data_config.user_number + ij - 1] = 1
+                        new_sol_tensor.append(ij)
+                        selected = True
+                        break
+                
+                if not selected:
+                    new_sol_tensor.append(0)
+            
+            _, new_energy_cost = eng_compute_func(idx, new_sol)
+            if new_energy_cost < eng_cost:
+                eng_cost = new_energy_cost
+                final_allocation_plan = new_sol_tensor
+
+            # > threshold -> 1
+            # = threshold and threshold <= 0.5 -> 1
+            # = threshold and threshold > 0.5 -> 0
+            # < threshold -> 0
+        
+        return eng_cost, torch.Tensor(final_allocation_plan)
+
+        
+        
+
+
+    # def decode(self, h, k = 1, mode = 'OP'):
+    #     # to have batch dimension when feed into Tensor
+    #     h = torch.Tensor(h[np.newaxis, :])
+    #     self.model.eval()
+    #     m_pred = self.model(h)
+    #     m_pred = m_pred.detach().numpy()
+    #     if mode == 'OP':
+    #         return self.knm(m_pred[0], k) #op
+    #     elif mode == 'KNN':
+    #         return self.knn(m_pred[0], k) #knn
+    #     elif mode == 'MP':
+    #         return self.mp(m_pred[0], k) #MP
+    #     else:
+    #         print("The action selection must be 'OP' or 'KNN'")
 
     def mp(self, m, k = 1):
         """
@@ -279,7 +317,7 @@ class MemoryDNN(nn.Module):
 
             if predict_prob[row][idx] >= threshold_v:
                 T.append(idx)
-                new_idx = row * (self.split_len - 1) + (idx - 1)
+                new_idx = row * (self.choice_len - 1) + (idx - 1)
                 new_sol[new_idx] = 1
             else:
                 T.append(0)

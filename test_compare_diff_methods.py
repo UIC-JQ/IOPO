@@ -76,7 +76,7 @@ def compare_method(f):
 if __name__ == '__main__':
     # SETTINGS:
     number_of_uav = 6                         # numbers of UAVs 
-    number_of_user = 20                        # number of users
+    number_of_user = 3                        # number of users
     inner_path = 'NumOfUser:{}_NumOfUAV:{}'.format(number_of_user, number_of_uav)
     data_config = DataConfig(load_config_from_path='CONFIG_' + inner_path + '.json')
 

@@ -8,7 +8,161 @@ import math # cos() for Rastrigin
 import copy # array-copying convenience
 import sys # max float
 
-def whale(h, b, data_config, need_stats=False, is_test=False):
+def compute_local_eng_cost(task_size=None, time_threshold=None, user_compute_speed=None,
+                           user_compute_power=None, penalty=None):
+    """
+    计算本地能量消耗 = 计算时间 * 单位时间消耗能量大小(i.e.功率) + penalty
+        - 如果计算时间超过了time_threshold, 则penalty=penalty,
+        - 否则penalty = 0
+    """
+
+    compute_time_required = task_size / user_compute_speed
+
+    if compute_time_required > time_threshold:
+        return compute_time_required * user_compute_power + penalty
+    
+    return compute_time_required * user_compute_power
+
+def compute_upload_eng_cost(task_size=None, 
+                            time_threshold=None,
+                            uav_compute_speed=None,
+                            uav_compute_power=None,
+                            penalty=None,
+                            uav_coordinate=None,
+                            user_coordinate=None,
+                            user_transmit_power=None,
+                            data_config=None
+                            ):
+    # 记录不同的energy cost
+    compute_eng_cost = transmit_eng_cost = 0
+
+    # 机器上的计算时间
+    compute_time_required = task_size / uav_compute_speed
+    # 机器上的计算能耗
+    compute_eng_cost = compute_time_required * uav_compute_power
+
+    # # 传输task到机器上需要的总时间
+    trans_speed = __compute_user_to_uav_trans_speed(uav_coordinate, user_coordinate, data_config)
+    transmit_time_required = task_size / trans_speed
+    # 传输包到机器上需要的总能耗
+    transmit_eng_cost = transmit_time_required * user_transmit_power
+
+    total_time_required = compute_time_required + transmit_time_required
+
+    if total_time_required > time_threshold:
+        return (compute_eng_cost + transmit_eng_cost) + penalty
+    
+    return compute_eng_cost + transmit_eng_cost
+
+def __compute_user_to_uav_trans_speed(uav_coordinate, user_coordinate, data_config):
+    uav_coordinate = np.array(uav_coordinate)
+    user_coordinate = np.array(user_coordinate)
+    
+    l0 = np.array(data_config.IRS_l0_coordinate)
+
+    c = data_config.SPEED_OF_LIGHT
+    f = data_config.SUB_CHANNEL_FREQUENCY
+    K = data_config.SUB_CHANNEL_K
+    z = data_config.IRS_z_number
+    x = data_config.IRS_x_number #IRS x-axis refector
+    B = data_config.CHANNEL_BANDWIDTH
+    p = data_config.CHANNEL_POWER #信道传输功率
+    T = data_config.TIME_SLOT_LENGTH   #s equal to 0.125ms,time of one slot
+    sigma2 = 10**((-174)/10 - 3)#-174 dBm/Hz Gaussian nosie power
+    phi = np.zeros(x * z)
+    delta = data_config.IRS_delta
+
+    def _rate():
+        g_hat_gain = _ghatGain(_g_gain)
+        h_gain     = _hGain()
+
+        res = B * np.math.log((1+(p*abs(g_hat_gain+h_gain)**2)/sigma2), 2)
+        result = res/(1/T) #bit/s to bit/slot
+        return result
+    
+    def _hGain():
+        du = np.linalg.norm(uav_coordinate - user_coordinate)
+        result = c/(4*np.pi*f*du)*np.exp(-1j*2*np.pi*f*du/c+(-K*du)/2)
+
+        return result
+
+    def _ghatGain(g_gain):
+        a = np.matmul(_er(), _phi_diag())
+        b = np.matmul(a, _eu())
+        result = _g_gain() * b
+        #print("ghat - IRS gain",result)
+        return result
+    
+    def _g_gain():
+        dm = np.linalg.norm(l0 - uav_coordinate)
+        dr = np.linalg.norm(l0 - user_coordinate)
+
+        dp = dr + dm
+        result = c/(8*np.sqrt(np.pi**3)*f*dp)*np.exp(-1j*2*np.pi*f*dp/c+(-K*dp)/2)
+
+        return result
+
+
+    def _er():
+        tem = []
+        tem2 = []
+        theta = []
+        e_r = []
+        r0 = np.linalg.norm(uav_coordinate - l0)
+        
+        # 垂直板
+        for j in range(1, z + 1):
+            # 水平板子
+            for k in range(1, x + 1):
+                l_t = ((k-1)*delta,0,(j-1)*delta)
+                tem.append(l_t)
+
+        tem = np.array(tem)
+        for j in tem:
+            tem2.append(np.sum((l0-uav_coordinate)*j))#无人机m坐标乘距离
+
+        for k in tem2:
+            theta.append(2*np.pi*f*k/(c*r0))#无人机计算theta 
+
+        for k in theta:
+            e_r.append(np.exp(-1j*k))#e_r
+
+        return e_r
+    
+    def _eu():
+        tem = []
+        tem2 = []
+        theta = []
+        tem = []
+        e_u = []
+        ru = np.linalg.norm(user_coordinate - l0)
+
+        for j in range(1,z+1):
+            for k in range(1,x+1):
+                l_t=((k-1)*delta,0,(j-1)*delta)
+                tem.append(l_t)
+
+        tem = np.array(tem)
+        for k in tem:
+            tem2.append(np.sum((l0-user_coordinate)*k))#用户u坐标乘距离
+
+        for k in tem2:
+            theta.append(2*np.pi*f*k/(c*ru))#用户计算theta
+
+        for k in theta:
+            e_u.append(np.exp(-1j*k))#e
+        return e_u
+    
+    def _phi_diag():
+        temp = []
+        for i in phi:
+            temp.append(np.exp(1j*i))
+        x = np.diag(temp)
+        return x
+
+    return _rate()
+
+def whale(h, b, data_config, need_stats=False, optimize_phi=False, compute_local_eng_cost=False, compute_upload_eng_cost=False):
     
     # for equation 1 - 3
     '''
@@ -49,10 +203,9 @@ def whale(h, b, data_config, need_stats=False, is_test=False):
     def split_info(h):
         task = []
         h = np.array(h) #transfer input to np array
-        size = user*3
+        size = user * 3
         lu,task = np.split(h,[size])
         lu = lu.reshape(-1, 3)
-
 
         #拆分data size 和cpu cycles
         task = task.reshape(-1, 3)
@@ -63,10 +216,6 @@ def whale(h, b, data_config, need_stats=False, is_test=False):
             data_u = np.append(data_u,i[0])
             cycle_u = np.append(cycle_u,i[1])
             time_u = np.append(time_u,i[2])
-
-        # 统一了单位
-        # data_u = data_u*1000
-        # cycle_u = cycle_u*1e6
 
         return lu,data_u,cycle_u,time_u
 
@@ -136,14 +285,14 @@ def whale(h, b, data_config, need_stats=False, is_test=False):
         return result
 
     def ghatGain(u,m,phi):
-        a = np.matmul(er(m),phi_diag(phi))
+        a = np.matmul(er(m), phi_diag(phi))
         b = np.matmul(a,eu(u))
         #print("g-gain ",gGain(u,m))
         result = gGain(u,m)*b
         #print("ghat - IRS gain",result)
         return result
 
-    def rate(u,m,phi):
+    def rate(u, m, phi):
         gain = abs(ghatGain(u,m,phi)+hGain(u,m))
         res = B*np.math.log((1+(p*abs(ghatGain(u,m,phi)+hGain(u,m))**2)/sigma2),2)
         # print("user:",u)
@@ -161,7 +310,7 @@ def whale(h, b, data_config, need_stats=False, is_test=False):
         r0 = np.sqrt(np.sum(np.square(lm[m] - l0)))
         for j in range(1,z+1):
             for k in range(1,x+1):
-                l_t=((k-1)*delta,0,(j-1)*delta)
+                l_t = ((k-1)*delta,0,(j-1)*delta)
                 tem.append(l_t)
         tem = np.array(tem)
         for j in tem:
@@ -348,7 +497,6 @@ def whale(h, b, data_config, need_stats=False, is_test=False):
                     Xbest = copy.copy(whalePopulation[i].position)
                     Fbest = whalePopulation[i].fitness
 
-
             Iter += 1
         # end-while
         # returning the best solution
@@ -363,13 +511,12 @@ def whale(h, b, data_config, need_stats=False, is_test=False):
     max_iter = data_config.optimize_max_iter
 
 
-    if is_test:
+    if optimize_phi:
         best_position = woa(fitness, max_iter, num_whales, dim,0,2*np.pi)
     else:
         best_position = np.zeros(dim)
         err = fitness(best_position)
-
-
+    
     #WOA completed
     #print(b, "energy cost = %.6f" % err)
     #print("config data info: ", [int(x) for x in h])
@@ -389,6 +536,3 @@ def whale(h, b, data_config, need_stats=False, is_test=False):
 
 # for b in b_test_list:
 #     whale(h,b)
-
-
-
