@@ -1,10 +1,9 @@
-import csv
 import numpy as np
 from dataclass import DataConfig
 from opt3 import whale
 from tqdm import tqdm
 
-from memoryPyTorch import MemoryDNN
+from Model import MemoryDNN, LSTM_Model
 from util import load_from_csv, setup_seed
 
 def try_method(X, method, method_name, **kws):
@@ -76,7 +75,7 @@ def compare_method(f):
 if __name__ == '__main__':
     # SETTINGS:
     number_of_uav = 6                         # numbers of UAVs 
-    number_of_user = 3                        # number of users
+    number_of_user = 10                        # number of users
     inner_path = 'NumOfUser:{}_NumOfUAV:{}'.format(number_of_user, number_of_uav)
     data_config = DataConfig(load_config_from_path='CONFIG_' + inner_path + '.json')
 
@@ -90,7 +89,10 @@ if __name__ == '__main__':
     setup_seed()
 
     # OURS:
-    model = MemoryDNN.load_model('MODEL_NumOfUser:{}_NumOfUAV:{}.pt'.format(number_of_user, number_of_uav))
+    # model_name = MemoryDNN
+    model_name = LSTM_Model
+
+    model = model_name.load_model('MODEL_NumOfUser:{}_NumOfUAV:{}.pt'.format(number_of_user, number_of_uav))
     try_method(Record, compare_method(allocate_plan_NN_model), 'NN Model', model=model, input_feature=feature)
     try_method(Record, compare_method(allocate_plan_all_upload_random), 'ALL UPLOAD RANDOM (K=1)', K=1)
     try_method(Record, compare_method(allocate_plan_all_upload_random), 'ALL UPLOAD RANDOM (K=5)', K=5)

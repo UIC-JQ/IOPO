@@ -28,6 +28,8 @@ class DataConfig:
         self.TIME_SLOT_LENGTH               = 0.125 * 1e-3     # s equal to 0.125ms,time of one slot
         self.CHANNEL_POWER                  = 2                # 信道传输功率
         self.SUB_CHANNEL_FREQUENCY          = 3.7e11           # 子频道的中央频率 Hz
+        # self.__SUB_CHANNEL_K_L              = 0.0000001
+        # self.__SUB_CHANNEL_K_H              = 0.0008
         self.SUB_CHANNEL_K                  = 0.0000001          # 每个子频道中央频率的吸收参数 db/m
         self.CHANNEL_BANDWIDTH              = 3e10             # Hz
 
@@ -44,8 +46,8 @@ class DataConfig:
         self.IRS_z_number             = 5 #IRS z-axis refector
 
         # the computation rate of users (local) UEDs cycles/slot
-        __USER_C_LOWER_BOUND        = 5000
-        __USER_C_HIGHER_BOUND       = 20000
+        __USER_C_LOWER_BOUND        = 10000
+        __USER_C_HIGHER_BOUND       = 30000
         self.user_computational_capacity = [np.random.randint(__USER_C_LOWER_BOUND, __USER_C_HIGHER_BOUND)
                                                  for _ in range(self.user_number)]    
         # 用户计算功率 j/slot
@@ -63,8 +65,8 @@ class DataConfig:
         # -----------------------------------------------------------------------
         # 无人机:
         # 1. the computation rate of UAVs cycles/slot
-        self.__UAV_COMP_CAP_LOWER_B      = 80000
-        self.__UAV_COMP_CAP_HIGHER_B     = 120000
+        self.__UAV_COMP_CAP_LOWER_B      = 50000
+        self.__UAV_COMP_CAP_HIGHER_B     = 150000
         self.uav_computational_capacity = [np.random.randint(self.__UAV_COMP_CAP_LOWER_B, self.__UAV_COMP_CAP_HIGHER_B)
                                                 for _ in range(self.uav_number)]
         # 2.无人机功率 j/slot
@@ -94,25 +96,25 @@ class DataConfig:
         self.dataset_board_x_size = 600
         self.dataset_board_y_size = 800
 
-        # 5/9: 使用随机生成无人机位置
+        # Date 5/9: 使用随机生成无人机位置
         __UAV_POS_X = np.random.uniform(0, self.dataset_board_x_size, size=(self.uav_number, 1))
         __UAV_POS_Y = np.random.uniform(0, self.dataset_board_y_size, size=(self.uav_number, 1))
         __UAV_POS_Z = np.full(shape=(self.uav_number, 1), fill_value=20)
         self.uav_coordinate = np.concatenate([__UAV_POS_X, __UAV_POS_Y, __UAV_POS_Z], axis=1)
 
         # 单位：bit
-        self.dataset_user_task_size_l_b = 300           # 300 Bit
-        self.dataset_user_task_size_h_b = 500 * 1000    # 500KB
+        self.dataset_user_task_size_l_b = 0.3  * 1000         # kilo bit
+        self.dataset_user_task_size_h_b = 500 * 1000          # Kilo bit
 
-        # 单位: cycle/bit
+        # 单位: needed cpu cycles / bit
         self.dataset_cpb_l_b = 40
         self.dataset_cpb_h_b = 150
         
-        # 单位: slot (1.25ms)
         # 超过本地计算需要时间多久是可以的
-        self.dataset_dataset_cut_off_time = 100
+        # 单位: slot (1.25ms)
+        self.dataset_dataset_cut_off_time = 500
 
-        # 生成每个数据的标准答案，需要的random次数
+        # 默认生成每个数据的标准答案，需要的random次数
         self.dataset_random_times_for_selecting_best_sol = 100
 
         # -------------------------------------------------------------------------
@@ -157,12 +159,12 @@ class DataConfig:
 
 
         # FEATURE1:
-        # 不同负载下，uav的计算速度
-        uav_available_ratio = np.array([1, 0.75, 0.5, 0.25], dtype=float)                    # 模拟uav的不同空闲比率（75%空闲==25%负载)
-        uav_compute_capacity = np.full(shape=(self.uav_number, len(uav_available_ratio)),
-                                       fill_value=np.array(self.uav_computational_capacity).reshape(-1,1))
+        feature_uav_computational_capacity = self.uav_computational_capacity
+        # uav_available_ratio = np.array([1, 0.75, 0.5, 0.25], dtype=float)                    # 模拟uav的不同空闲比率（75%空闲==25%负载)
+        # uav_compute_capacity = np.full(shape=(self.uav_number, len(uav_available_ratio)),
+                                    #    fill_value=np.array(self.uav_computational_capacity).reshape(-1,1))
         
-        feature_uav_impactor = np.multiply(uav_available_ratio, uav_compute_capacity).flatten()
+        # feature_uav_impactor = np.multiply(uav_available_ratio, uav_compute_capacity).flatten()
 
         for _ in tqdm(range(num_of_data_points)):
             record = []
@@ -185,6 +187,8 @@ class DataConfig:
                 y = np.random.uniform(0, self.dataset_board_y_size)
                 record.extend([x, y, 0])
                 user_coordinate.append(np.array([x, y, 0]))
+                # k = np.random.uniform(self.__SUB_CHANNEL_K_L, self.__SUB_CHANNEL_K_H)
+                # record.append(k)
 
                 # FEATURE: distance_to_uavs (用户距离无人机的距离)
                 # for idx in range(self.uav_number):
@@ -204,27 +208,29 @@ class DataConfig:
                 __local_compute_time = (cpu_cycles_need) / self.user_computational_capacity[user_idx]
                 __acceptable_time_h_b = np.ceil(__local_compute_time) 
 
-                assert __acceptable_time_l_b <= __acceptable_time_h_b
-                acceptable_time = np.random.randint(__acceptable_time_l_b, __acceptable_time_h_b) + self.dataset_dataset_cut_off_time     # 任务可以接受的完成时间
+                if __acceptable_time_h_b == __acceptable_time_l_b:
+                    acceptable_time = __acceptable_time_h_b + self.dataset_dataset_cut_off_time
+                else:
+                    acceptable_time = np.random.randint(__acceptable_time_l_b, __acceptable_time_h_b) + self.dataset_dataset_cut_off_time     # 任务可以接受的完成时间
 
+                # acceptable_time = np.random.randint(__acceptable_time_l_b, __acceptable_time_h_b) + self.dataset_dataset_cut_off_time     # 任务可以接受的完成时间
                 record.append(task_size)
                 record.append(cpu_cycles_need)
                 record.append(acceptable_time) 
-
                 # ----------------------------------------------------------------
                 # 生成Feature:
-                # feature2.1 用户本地计算的energy cost
+                # feature2.1: 用户本地计算的energy cost
                 if not exclude_local_options_when_generating_y:
                     f_user_local_eng_cost = compute_local_eng_cost(task_size=cpu_cycles_need,
-                                                                time_threshold=acceptable_time,
-                                                                user_compute_speed=self.user_computational_capacity[user_idx],
-                                                                user_compute_power=self.user_computation_power[user_idx],
-                                                                penalty=self.overtime_penalty)
+                                                                   time_threshold=acceptable_time,
+                                                                   user_compute_speed=self.user_computational_capacity[user_idx],
+                                                                   user_compute_power=self.user_computation_power[user_idx],
+                                                                   penalty=self.overtime_penalty)
 
                     feature_user_choice_eng_cost.append(f_user_local_eng_cost)
 
                 # 生成Feature:
-                # feature 用户上传无人机计算的energy cost
+                # feature2.2: 用户上传无人机计算的energy cost
                 for uav_idx in range(self.uav_number):
                     f_user_upload_eng_cost = compute_upload_eng_cost(task_size=cpu_cycles_need,
                                                                      time_threshold=acceptable_time,
@@ -277,10 +283,11 @@ class DataConfig:
             # ----------存储数据---------------
             # 存储record
             data_Records.append(record)
+
             # 存储Feature
             Features = [
                 feature_user_choice_eng_cost,
-                feature_uav_impactor,
+                feature_uav_computational_capacity
             ]
 
             if require_feature_norm:
@@ -293,7 +300,6 @@ class DataConfig:
             e_cost, sol = self.random_sample_lower_eng_cost_plan(record,
                                                                  K=K,
                                                                  exclude_local_options=exclude_local_options_when_generating_y)
-
             # 将解转换成编号
             # e.g.:
             #   1. [0, 0, 1] -> 选择无人机编号3
@@ -325,6 +331,16 @@ class DataConfig:
         std = np.std(F)
 
         normalized = (F - mean) / std
+
+        return normalized
+    
+    def __min_max_norm(self, F, axis=None):
+        F = np.array(F)
+
+        min_v = np.amin(F, axis=axis)
+        max_v = np.amax(F, axis=axis)
+
+        normalized = (F - min_v) / max_v
 
         return normalized
     
@@ -409,24 +425,24 @@ class DataConfig:
 
 if __name__ == '__main__':
     # 创建对象
-    number_of_user = 3
+    number_of_user = 10
     number_of_uav = 6
     feature_norm = True
-    exclude_local_choice_when_generating_y = True
+    exclude_local_choice_when_generating_y = False
     dataObj = DataConfig(n_of_user=number_of_user, n_of_uav=number_of_uav)
     
     # 保存config
     dataObj.save_config('CONFIG_NumOfUser:{}_NumOfUAV:{}.json'.format(number_of_user, number_of_uav))
 
     # 生成数据集:
-    dataObj.generate_dataset(num_of_data_points=300,
+    dataObj.generate_dataset(num_of_data_points=25000,
                              saving_path='./TRAINING_NumOfUser:{}_NumOfUAV:{}'.format(number_of_user, number_of_uav),
-                             K=30,
+                             K=20,
                              data_config=dataObj,
                              require_feature_norm=feature_norm, 
                              exclude_local_options_when_generating_y=exclude_local_choice_when_generating_y)
 
-    dataObj.generate_dataset(num_of_data_points=100,
+    dataObj.generate_dataset(num_of_data_points=2000,
                              saving_path='./TESTING_NumOfUser:{}_NumOfUAV:{}'.format(number_of_user, number_of_uav),
                              K=1,
                              data_config=dataObj,

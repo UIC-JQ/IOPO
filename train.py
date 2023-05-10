@@ -1,8 +1,5 @@
-import csv 
-import numpy as np # import numpy
-
 # Implementated based on the PyTorch 
-from memoryPyTorch import MemoryDNN
+from Model import MemoryDNN, LSTM_Model
 
 import torch
 
@@ -32,18 +29,18 @@ if __name__ == "__main__":
     '''
     # 创建数据配置
     number_of_uav = 6                          # numbers of UAVs 
-    number_of_user = 3                         # number of users
+    number_of_user = 10                         # number of users
     inner_path = 'NumOfUser:{}_NumOfUAV:{}'.format(number_of_user, number_of_uav)
     data_config = DataConfig(load_config_from_path='CONFIG_' + inner_path + '.json')
 
     # 训练NN配置
-    number_of_iter     = 10000                                                  # number of time frames
-    train_per_step     = 10                                                     # 每添加相应个数据后，训练网络一次
+    number_of_iter     = 40000                                                  # number of time frames
+    train_per_step     = 10                                                      # 每添加相应个数据后，训练网络一次
     input_feature_size = None                                                   # dim of training sample
     output_y_size      = number_of_user * (number_of_uav + 1)                   # 神经网络输出dim
     # number_of_uav + 1 是因为 [0, 1, 2, 3], 0表示本地，1-3为无人机编号, +1是为了多出来的0
     cvt_output_size    = number_of_user * number_of_uav                         # 用于生成答案数组 (由0，1)构成
-    batch_size         = 256
+    batch_size         = 256 
 
     # ----------------------------
     # TODO: re-implement
@@ -67,23 +64,26 @@ if __name__ == "__main__":
     Record                = load_from_csv(file_path=ENV_file_path, data_type=float)                        # 读取环境状态
 
     # create model
-    model = MemoryDNN(input_feature_size,
-                      output_size=output_y_size,
-                      hidden_feature_size=256,
-                      learning_rate = 0.001,
-                      training_interval=train_per_step,
-                      batch_size=batch_size,
-                      dropout=0.2,
-                      split_len = number_of_uav + 1,
-                      convert_output_size=cvt_output_size,
-                      data_config=data_config,
-                      memory_size=Memory
+    model_name = LSTM_Model
+    # model_name = MemoryDNN
+
+    model = model_name(input_feature_size,
+                       output_size=output_y_size,
+                       hidden_feature_size=512,
+                       learning_rate = 0.001,
+                       training_interval=train_per_step,
+                       batch_size=batch_size,
+                       dropout=0.2,
+                       split_len = number_of_uav + 1,
+                       convert_output_size=cvt_output_size,
+                       data_config=data_config,
+                       memory_size=Memory,
     )
 
     # 定义energy cost计算函数
     energy_cost_function = eng_cost_wrapper_func(Record, data_config)
     # 设置随机种子
-    setup_seed()
+    # setup_seed()
 
     # start training
     # -------------------------------------------------------
@@ -92,14 +92,13 @@ if __name__ == "__main__":
         input_feature = X[idx]
 
         # eng_cost, new_y = model.decode(input_feature, K=5, eng_compute_func=energy_cost_function, idx=idx)
-
         # # 如果存在能耗更低的解
         # if eng_cost < ENG_COST[idx]:
         #     ENG_COST[idx, :] = eng_cost
         #     Y[idx, :]        = torch.Tensor(new_y)
 
         model.encode(feature=input_feature, y=Y[idx])
-        
+       
         
     model.plot_cost()
     # save model parameters:
