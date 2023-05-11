@@ -49,7 +49,7 @@ def compare_method(f):
             # 用给定方法生成一个 allocate plan
             __allocate_plan = f(record, data_config, data_idx=idx, **kws)
             # 计算energy cost
-            _, energy, overtime_logs = whale(record, __allocate_plan, data_config, need_stats=True)
+            _, energy, overtime_logs = whale(record, __allocate_plan, data_config, need_stats=True, optimize_phi=True)
             # print('Allocation Plan: {}, Eng cost: {}'.format(__allocate_plan, energy))
 
             if overtime_logs:
@@ -74,7 +74,7 @@ def compare_method(f):
 
 if __name__ == '__main__':
     # SETTINGS:
-    number_of_uav = 6                         # numbers of UAVs 
+    number_of_uav = 3                        # numbers of UAVs 
     number_of_user = 10                        # number of users
     inner_path = 'NumOfUser:{}_NumOfUAV:{}'.format(number_of_user, number_of_uav)
     data_config = DataConfig(load_config_from_path='CONFIG_' + inner_path + '.json')
@@ -89,12 +89,12 @@ if __name__ == '__main__':
     setup_seed()
 
     # OURS:
-    # model_name = MemoryDNN
-    model_name = LSTM_Model
+    model_name = MemoryDNN
+    # model_name = LSTM_Model
 
     model = model_name.load_model('MODEL_NumOfUser:{}_NumOfUAV:{}.pt'.format(number_of_user, number_of_uav))
     try_method(Record, compare_method(allocate_plan_NN_model), 'NN Model', model=model, input_feature=feature)
     try_method(Record, compare_method(allocate_plan_all_upload_random), 'ALL UPLOAD RANDOM (K=1)', K=1)
     try_method(Record, compare_method(allocate_plan_all_upload_random), 'ALL UPLOAD RANDOM (K=5)', K=5)
-    try_method(Record, compare_method(allocate_plan_local_and_upload_random), 'BOTH LOCAL AND UPLOAD RANDOM (K=5)', K=5)
+    try_method(Record, compare_method(allocate_plan_local_and_upload_random), 'BOTH LOCAL AND UPLOAD RANDOM (K=50)', K=50)
     try_method(Record, compare_method(allocate_plan_all_local), 'ALL LOCAL', K=1)

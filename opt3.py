@@ -367,6 +367,7 @@ def whale(h, b, data_config, need_stats=False, optimize_phi=False, compute_local
             time_t = data_u[u] / rate(u,m,phi)
             # print("transition time",time_t)
             time_c = cycle_u[u] / (z_m[m]/loaddic[m])
+            # print('compute_time:', time_c)
             tran_enery = (data_u[u]/rate(u,m,phi)) * p_t[u]
             if (time_c + time_t) > time_u[u]:
                 # print("Task must not exceed the deadline")
@@ -515,7 +516,8 @@ def whale(h, b, data_config, need_stats=False, optimize_phi=False, compute_local
         best_position = woa(fitness, max_iter, num_whales, dim,0,2*np.pi)
     else:
         best_position = np.zeros(dim)
-        err = fitness(best_position)
+
+    err = fitness(best_position)
     
     #WOA completed
     #print(b, "energy cost = %.6f" % err)

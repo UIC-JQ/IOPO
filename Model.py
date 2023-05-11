@@ -392,7 +392,8 @@ class MemoryDNN(nn.Module):
         predict = nn.functional.log_softmax(predict, dim=1)
         # 将(batch_size, y_dim) 垂直展开，shape: (N)
         y = torch.reshape(y, (-1, ))
-        loss = self.criterion(predict, y.long())
+        loss = self.criterion(predict, y.long()) * self.data_config.user_number
+        print(loss)
 
         # 优化模型参数
         self.optimizer.zero_grad()
@@ -440,6 +441,7 @@ class MemoryDNN(nn.Module):
         predict_prob = nn.functional.softmax(predict, dim=1)
 
         ans = torch.argmax(predict_prob, dim=1).flatten()
+        print(ans)
 
         return ans
 
@@ -474,7 +476,7 @@ class MemoryDNN(nn.Module):
                             selected = True
                             break
                         # 计算无人机编号:
-                        new_sol[ii * self.data_config.user_number + ij - 1] = 1
+                        new_sol[ii * self.data_config.uav_number + ij - 1] = 1
                         new_sol_tensor.append(ij)
                         selected = True
                         break
@@ -487,7 +489,7 @@ class MemoryDNN(nn.Module):
                             selected = True
                             break
                         # 计算无人机编号:
-                        new_sol[ii * self.data_config.user_number + ij - 1] = 1
+                        new_sol[ii * self.data_config.uav_number + ij - 1] = 1
                         new_sol_tensor.append(ij)
                         selected = True
                         break

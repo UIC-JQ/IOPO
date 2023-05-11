@@ -28,13 +28,13 @@ if __name__ == "__main__":
         Adaptive K is implemented. K = max(K, K_his[-memory_size])
     '''
     # 创建数据配置
-    number_of_uav = 6                          # numbers of UAVs 
-    number_of_user = 10                         # number of users
+    number_of_uav = 3                          # numbers of UAVs 
+    number_of_user = 10                        # number of users
     inner_path = 'NumOfUser:{}_NumOfUAV:{}'.format(number_of_user, number_of_uav)
     data_config = DataConfig(load_config_from_path='CONFIG_' + inner_path + '.json')
 
     # 训练NN配置
-    number_of_iter     = 40000                                                  # number of time frames
+    number_of_iter     = 3000                                                  # number of time frames
     train_per_step     = 10                                                      # 每添加相应个数据后，训练网络一次
     input_feature_size = None                                                   # dim of training sample
     output_y_size      = number_of_user * (number_of_uav + 1)                   # 神经网络输出dim
@@ -58,18 +58,20 @@ if __name__ == "__main__":
     X                     = torch.Tensor(load_from_csv(file_path=X_feature_file, data_type=float))         # 读取input feature
     input_feature_size    = X.shape[-1]                                                                    # 获取input feature的维度
     Num_of_training_pairs = len(X)                                                                         # 获取训练数据量
+    # print(X)
 
     Y                     = torch.Tensor(load_from_csv(file_path=Y_ans_file, data_type=int))               # 读取reference answer
     ENG_COST              = load_from_csv(file_path=Y_eng_cost_save_path, data_type=float)                 # 读取reference answer的energy cost
     Record                = load_from_csv(file_path=ENV_file_path, data_type=float)                        # 读取环境状态
+    # print(Y)
 
     # create model
-    model_name = LSTM_Model
-    # model_name = MemoryDNN
+    # model_name = LSTM_Model
+    model_name = MemoryDNN
 
     model = model_name(input_feature_size,
                        output_size=output_y_size,
-                       hidden_feature_size=512,
+                       hidden_feature_size=16,
                        learning_rate = 0.001,
                        training_interval=train_per_step,
                        batch_size=batch_size,
@@ -91,11 +93,15 @@ if __name__ == "__main__":
         idx = i % Num_of_training_pairs
         input_feature = X[idx]
 
-        # eng_cost, new_y = model.decode(input_feature, K=5, eng_compute_func=energy_cost_function, idx=idx)
-        # # 如果存在能耗更低的解
-        # if eng_cost < ENG_COST[idx]:
-        #     ENG_COST[idx, :] = eng_cost
-        #     Y[idx, :]        = torch.Tensor(new_y)
+        eng_cost, new_y = model.decode(input_feature, K=20, eng_compute_func=energy_cost_function, idx=idx)
+        # 如果存在能耗更低的解
+        if eng_cost < ENG_COST[idx]:
+            print('Regenerate a better solution, cost', eng_cost)
+            print(new_y)
+            print('original solution, cost', ENG_COST[idx])
+            print(Y[idx])
+            ENG_COST[idx, :] = eng_cost
+            Y[idx, :]        = torch.Tensor(new_y)
 
         model.encode(feature=input_feature, y=Y[idx])
        
