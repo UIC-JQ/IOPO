@@ -24,25 +24,40 @@ def setup_seed(seed=201314):
      random.seed(seed)
      torch.backends.cudnn.deterministic = True
 
-def generate_better_allocate_plan(self, prob, K=1, threshold_v=0.5, eng_compute_func=None, idx=None):
+def generate_better_allocate_plan_KMN(prob,
+                                      K=1, 
+                                      threshold_p=0.5,
+                                      eng_compute_func=None,
+                                      idx=None,
+                                      convert_output_size=None,
+                                      data_config=None):
     flatten_prob = prob.view(-1, 1)
+    # use average as threshold
+    # threshold_p = float(torch.mean(flatten_prob.view(1, -1)))
+    CUTOFF_PROB = threshold_p
 
-    threshold_0 = torch.full(flatten_prob.shape, fill_value=threshold_v, dtype=torch.float32)
+    threshold_0 = torch.full(flatten_prob.shape, fill_value=threshold_p, dtype=torch.float32)
 
-    # 将概率排序大小
+    # DIST = abs(Euclidean Distance(p - threshold_p)), 排序
     _, idx_list = torch.sort(nn.functional.pairwise_distance(threshold_0, flatten_prob, p=2))
 
+    # 记录最好的answer
     eng_cost, final_allocation_plan = float('inf'), None
-    CUTOFF_PROB = 0.5
 
-    # 生成K-1个新解
-    for i in range(K-1):
-        new_sol = np.zeros(self.convert_output_size)
+    # 生成K个新解
+    for i in range(K):
+        new_sol = np.zeros(convert_output_size)
         new_sol_tensor = []
 
+        # 选择新的threshold, DIST中第i大的prob, 作为新的threshold
         idx = idx_list[i]
         threshold = flatten_prob[idx]
 
+        # 规则：
+        # prob > threshold -> 1
+        # prob = threshold and threshold <= CUTOFF_PROB -> 1
+        # prob = threshold and threshold > CUTOFF_PROB -> 0
+        # prob < threshold -> 0
         for ii, row in enumerate(prob):
             selected = False
 
@@ -54,7 +69,7 @@ def generate_better_allocate_plan(self, prob, K=1, threshold_v=0.5, eng_compute_
                         selected = True
                         break
                     # 计算无人机编号:
-                    new_sol[ii * self.data_config.uav_number + ij - 1] = 1
+                    new_sol[ii * data_config.uav_number + ij - 1] = 1
                     new_sol_tensor.append(ij)
                     selected = True
                     break
@@ -67,7 +82,7 @@ def generate_better_allocate_plan(self, prob, K=1, threshold_v=0.5, eng_compute_
                         selected = True
                         break
                     # 计算无人机编号:
-                    new_sol[ii * self.data_config.uav_number + ij - 1] = 1
+                    new_sol[ii * data_config.uav_number + ij - 1] = 1
                     new_sol_tensor.append(ij)
                     selected = True
                     break
@@ -76,13 +91,9 @@ def generate_better_allocate_plan(self, prob, K=1, threshold_v=0.5, eng_compute_
                 new_sol_tensor.append(0)
         
         _, new_energy_cost = eng_compute_func(idx, new_sol)
+        # 更新answer:
         if new_energy_cost < eng_cost:
             eng_cost = new_energy_cost
             final_allocation_plan = new_sol_tensor
 
-        # > threshold -> 1
-        # = threshold and threshold <= 0.5 -> 1
-        # = threshold and threshold > 0.5 -> 0
-        # < threshold -> 0
-    
     return eng_cost, torch.Tensor(final_allocation_plan)

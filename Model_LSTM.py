@@ -181,10 +181,8 @@ class LSTM_Model(nn.Module):
         dec_c = self.encoder_c(x).reshape(-1, self.hidden_feature_size)
 
         # 2nd stage: decode:
-        # 初始化 decoder hidden states (用encoder的output)
-        # h0 = enc_hidden[0].reshape(1, 1, -1)
-        # c0 = enc_hidden[1].reshape(1, 1, -1)
         ans = []
+        probs = []
 
         for i in range(data_config.user_number):
             # 预测第i个人
@@ -200,14 +198,17 @@ class LSTM_Model(nn.Module):
             # formula: output = W([output; overload_info]) + b
             output = self.final_linear_layer(output)
 
-            output_index = torch.argmax(nn.functional.softmax(output, dim=1), dim=1)
+            prob   = nn.functional.softmax(output, dim=1)
+            probs.append(prob)
+
+            output_index = torch.argmax(prob, dim=1)
 
             for user_idx, choice_id in enumerate(output_index):
                 ans.append(choice_id)
                 if choice_id == 0: continue
                 overload_factor[user_idx][choice_id - 1] += 1
             
-        return self.convert_answer_index_to_zero_one_answer_vector(ans, data_config)
+        return torch.vstack(probs), self.convert_answer_index_to_zero_one_answer_vector(ans, data_config)
     
     def convert_answer_index_to_zero_one_answer_vector(self, ans_idxs, data_config):
         answer_vector = np.zeros(self.convert_output_size)

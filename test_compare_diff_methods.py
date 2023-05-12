@@ -67,7 +67,7 @@ def allocate_plan_NN_model(record, data_config: DataConfig, **kws):
     model = kws['model']
     data_idx = kws['data_idx']
     X = kws['input_feature'][data_idx,:]
-    __allocate_plan = model.generate_answer(X, data_config)
+    _, __allocate_plan = model.generate_answer(X, data_config)
 
     if kws['print_plan']:
         print_plan(__allocate_plan, data_config)

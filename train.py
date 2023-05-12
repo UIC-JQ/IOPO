@@ -9,7 +9,7 @@ from tqdm import tqdm
 
 from dataclass import DataConfig
 from opt3 import whale
-from util import load_from_csv, setup_seed
+from util import load_from_csv, generate_better_allocate_plan_KMN
 
 import argparse
 
@@ -31,6 +31,7 @@ if __name__ == "__main__":
     parser.add_argument('--hidden_dim', type=int, help='hidden dimension的大小')
     parser.add_argument('--num_of_iter', type=int, help='训练的轮数')
     parser.add_argument('--drop_out', type=float, help='drop out概率')
+    parser.add_argument('--reg_better_sol', action='store_true', help='生成更好的解')
     args = parser.parse_args()
 
     # 创建数据配置
@@ -40,13 +41,16 @@ if __name__ == "__main__":
     data_config = DataConfig(load_config_from_path='CONFIG_' + inner_path + '.json')
 
     # 训练NN配置
-    number_of_iter     = args.num_of_iter                                       # number of time frames
-    batch_size         = args.batch_size 
-    train_per_step     = 10                                                     # 每添加相应个数据后，训练网络一次
-    input_feature_size = None                                                   # dim of training sample
-    output_y_size      = number_of_user * (number_of_uav + 1)                   # 神经网络输出dim, number_of_uav + 1 是因为 [0, 1, 2, 3], 0表示本地，1-3为无人机编号, +1是为了多出来的0
-    cvt_output_size    = number_of_user * number_of_uav                         # 用于生成答案数组 (由0，1)构成
-    Memory             = batch_size * 4                                         # 设置Memory size大小
+    number_of_iter                = args.num_of_iter                                       # number of time frames
+    batch_size                    = args.batch_size 
+    train_per_step                = 10                                                     # 每添加相应个数据后，训练网络一次
+    input_feature_size            = None                                                   # dim of training sample
+    output_y_size                 = number_of_user * (number_of_uav + 1)                   # 神经网络输出dim, number_of_uav + 1 是因为 [0, 1, 2, 3], 0表示本地，1-3为无人机编号, +1是为了多出来的0
+    cvt_output_size               = number_of_user * number_of_uav                         # 用于生成答案数组 (由0，1)构成
+    Memory                        = batch_size * 4                                         # 设置Memory size大小
+    generate_better_sol_k         = 10
+    config_generate_better_sol_during_training = args.reg_better_sol
+    assert generate_better_sol_k <= cvt_output_size
 
     # ---------------------------------------------------------------------------------
     # Load training data
@@ -87,28 +91,43 @@ if __name__ == "__main__":
     )
 
     # 定义energy cost计算函数
-    energy_cost_function = eng_cost_wrapper_func(Record, data_config)
+    energy_cost_function     = eng_cost_wrapper_func(Record, data_config)
+    log_gen_better_sol_cnt   = 0
 
     # -------------------------------------------------------
     # start training
-    for i in tqdm(range(number_of_iter)):
-        idx = i % Num_of_training_pairs
-        input_feature = X[idx]
+    if config_generate_better_sol_during_training:
+        print('[config] Generate better solution during training.')
+        for i in tqdm(range(number_of_iter)):
+            idx = i % Num_of_training_pairs
+            input_feature = X[idx]
 
-        # eng_cost, new_y = model.decode(input_feature, K=20, eng_compute_func=energy_cost_function, idx=idx)
-        # # 如果存在能耗更低的解
-        # if eng_cost < ENG_COST[idx]:
-        #     print('Regenerate a better solution, cost', eng_cost)
-        #     print(new_y)
-        #     print('original solution, cost', ENG_COST[idx])
-        #     print(Y[idx])
-        #     ENG_COST[idx, :] = eng_cost
-        #     Y[idx, :]        = torch.Tensor(new_y)
+            prob, ans = model.generate_answer(input_feature, data_config)
+            eng_cost, new_y = generate_better_allocate_plan_KMN(prob,
+                                                                K=generate_better_sol_k,
+                                                                eng_compute_func=energy_cost_function,
+                                                                idx=idx,
+                                                                convert_output_size=cvt_output_size,
+                                                                data_config=data_config)
+            # # 如果存在能耗更低的解
+            if eng_cost < ENG_COST[idx]:
+                print('Regenerate a better solution, cost', eng_cost)
+                ENG_COST[idx, :] = eng_cost
+                Y[idx, :]        = torch.Tensor(new_y)
+                log_gen_better_sol_cnt += 1
 
-        model.encode(feature=input_feature, y=Y[idx])
+            model.encode(feature=input_feature, y=Y[idx])
+    else:
+        print('[config] ONLY use pre-genererated answers training.')
+        for i in tqdm(range(number_of_iter)):
+            idx = i % Num_of_training_pairs
+            input_feature = X[idx]
+
+            model.encode(feature=input_feature, y=Y[idx])
        
         
     model.plot_cost()
+    print('[Log]: Generate {} better solutions during training'.format(log_gen_better_sol_cnt))
     # save model parameters:
     model_save_path = 'MODEL_NumOfUser:{}_NumOfUAV:{}.pt'.format(number_of_user, number_of_uav)
     model.save_model(model_save_path)

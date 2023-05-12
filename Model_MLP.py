@@ -138,11 +138,11 @@ class MLP(nn.Module):
         return torch.load(model_path)
     
     def generate_answer(self, input, data_config):
-        ans_idx = self.predict_answer_index(torch.Tensor(input).float())
+        prob, ans_idx = self.predict_answer_index(torch.Tensor(input).float())
 
         answer = self.convert_answer_index_to_zero_one_answer_vector(ans_idx, data_config)
         
-        return answer
+        return prob, answer
     
     def convert_answer_index_to_zero_one_answer_vector(self, ans_idxs, data_config):
         answer_vector = np.zeros(self.convert_output_size)
@@ -169,7 +169,7 @@ class MLP(nn.Module):
 
         ans = torch.argmax(predict_prob, dim=1).flatten()
 
-        return ans
+        return predict_prob, ans
 
     def plot_cost(self):
         import matplotlib.pyplot as plt

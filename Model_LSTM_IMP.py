@@ -20,10 +20,10 @@ class EncAttention(nn.Module):
         
         # Compute attention score:
         at_score = torch.nn.functional.softmax(et, dim=1)
-        at_score = at_score.unsqueeze(1)                  # batch_size, L_sequence
+        at_score = at_score.unsqueeze(1)                  
 
         # Compute encoder context vector
-        ct = torch.bmm(at_score, enc_hiddens)             # bs, 1, hid_dim
+        ct = torch.bmm(at_score, enc_hiddens)             # batch_size, 1, hid_dim
         ct = ct.squeeze(1)                                # batch_size, hid_dim
 
         return ct
@@ -207,6 +207,7 @@ class Model_LSTM_IMP(nn.Module):
 
         # 2nd stage: decode:
         ans = []
+        probs = []
 
         for i in range(self.data_config.user_number):
             # 第i列的x, 以及answer:
@@ -224,8 +225,13 @@ class Model_LSTM_IMP(nn.Module):
             ci = self.Atten(torch.cat([f_uav_workload, dec_h], dim=1), enc_hiddens)
 
             output = self.final_linear_layer(torch.cat([dec_h, f_uav_workload, ci], dim=1))
+            prob   = nn.functional.softmax(output, dim=1)
 
-            output_index = torch.argmax(nn.functional.softmax(output, dim=1), dim=1)
+            # 存储prob
+            probs.append(prob)
+
+            # 计算解的index
+            output_index = torch.argmax(prob, dim=1)
 
             # 更新无人机的overload信息
             for user_idx, choice_id in enumerate(output_index):
@@ -233,7 +239,7 @@ class Model_LSTM_IMP(nn.Module):
                 if choice_id == 0: continue
                 workload_factor[user_idx][choice_id - 1] += 1
 
-        return self.convert_answer_index_to_zero_one_answer_vector(ans, data_config)
+        return torch.vstack(probs), self.convert_answer_index_to_zero_one_answer_vector(ans, data_config)
     
     def convert_answer_index_to_zero_one_answer_vector(self, ans_idxs, data_config):
         answer_vector = np.zeros(self.convert_output_size)

@@ -446,7 +446,7 @@ if __name__ == '__main__':
     parser.add_argument('--userNumber', type=int, help='user的数量')
     parser.add_argument('--number_of_train_data', type=int, help='train_data的数量')
     parser.add_argument('--number_of_test_data', type=int, help='test_data的数量')
-    parser.add_argument('--using_random_sol', type=bool, help='是否选择random方法生成解')
+    parser.add_argument('--using_random_sol', action='store_true', help='是否选择random方法生成解')
     args = parser.parse_args()
 
     # 创建对象
