@@ -4,9 +4,9 @@ Helen
 """
 import numpy as np
 import random
-import math # cos() for Rastrigin
-import copy # array-copying convenience
-import sys # max float
+import math
+import copy
+import sys
 
 def compute_local_eng_cost(task_size=None, time_threshold=None, user_compute_speed=None,
                            user_compute_power=None, penalty=None):
@@ -90,7 +90,6 @@ def __compute_user_to_uav_trans_speed(uav_coordinate, user_coordinate, data_conf
         a = np.matmul(_er(), _phi_diag())
         b = np.matmul(a, _eu())
         result = _g_gain() * b
-        #print("ghat - IRS gain",result)
         return result
     
     def _g_gain():
@@ -101,7 +100,6 @@ def __compute_user_to_uav_trans_speed(uav_coordinate, user_coordinate, data_conf
         result = c/(8*np.sqrt(np.pi**3)*f*dp)*np.exp(-1j*2*np.pi*f*dp/c+(-K*dp)/2)
 
         return result
-
 
     def _er():
         tem = []
@@ -163,7 +161,6 @@ def __compute_user_to_uav_trans_speed(uav_coordinate, user_coordinate, data_conf
     return _rate()
 
 def whale(h, b, data_config, need_stats=False, optimize_phi=False, compute_local_eng_cost=False, compute_upload_eng_cost=False):
-    
     # for equation 1 - 3
     '''
     IRS在x-z平面
@@ -295,10 +292,7 @@ def whale(h, b, data_config, need_stats=False, optimize_phi=False, compute_local
     def rate(u, m, phi):
         gain = abs(ghatGain(u,m,phi)+hGain(u,m))
         res = B*np.math.log((1+(p*abs(ghatGain(u,m,phi)+hGain(u,m))**2)/sigma2),2)
-        # print("user:",u)
-        # print("uav: ",m)
-        # print("channel gain:",gain)
-        # print("speed:",res)
+
         result = res/(1/T)#bit/s to bit/slot
         return result
 
@@ -355,8 +349,6 @@ def whale(h, b, data_config, need_stats=False, optimize_phi=False, compute_local
         return x
 
     def E_offload(phi):
-        #j[0]is the user index, j[1]is the UAV index
-        # print("offload allocation ",off)
         E_tran = 0
         E_comp = 0
         ovt_log = set()
@@ -519,10 +511,7 @@ def whale(h, b, data_config, need_stats=False, optimize_phi=False, compute_local
 
     err = fitness(best_position)
     
-    #WOA completed
-    #print(b, "energy cost = %.6f" % err)
-    #print("config data info: ", [int(x) for x in h])
-    # print("energy cost = %.6f" % err)
+
     if need_stats:
         return best_position, err, overtime_stat(best_position)
 
