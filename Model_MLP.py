@@ -19,6 +19,7 @@ class MLP(nn.Module):
         memory_size=1000
     ):
         super().__init__()
+        print('[Model] Model Type: MLP')
 
         # 模型参数
         self.input_feature_size = input_feature_size
@@ -171,9 +172,9 @@ class MLP(nn.Module):
 
         return predict_prob, ans
 
-    def plot_cost(self):
+    def plot_cost(self, model_name):
         import matplotlib.pyplot as plt
         plt.plot(np.arange(len(self.cost_his))*self.training_interval, self.cost_his)
         plt.ylabel('Training Loss')
         plt.xlabel('Time Frames')
-        plt.savefig('train_loss.png')
+        plt.savefig('model:{}_train_loss.png'.format(model_name))

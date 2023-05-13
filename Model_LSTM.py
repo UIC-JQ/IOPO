@@ -20,7 +20,7 @@ class LSTM_Model(nn.Module):
         memory_size=1000,
     ):
         super().__init__()
-        print('Model Type: NAIVE LSTM')
+        print('[Model] Model Type: NAIVE LSTM')
 
         # 生成解参数:
         self.convert_output_size = convert_output_size
@@ -229,9 +229,9 @@ class LSTM_Model(nn.Module):
     def load_model(model_path):
         return torch.load(model_path)
 
-    def plot_cost(self):
+    def plot_cost(self, model_name):
         import matplotlib.pyplot as plt
         plt.plot(np.arange(len(self.cost_his))*self.training_interval, self.cost_his)
         plt.ylabel('Training Loss')
         plt.xlabel('Time Frames')
-        plt.savefig('train_loss.png')
+        plt.savefig('model:{}_train_loss.png'.format(model_name))

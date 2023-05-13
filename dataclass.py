@@ -321,7 +321,7 @@ class DataConfig:
         作用：从配置文件file_path中读取配置
         """
 
-        print('---> loading config from file: "{}"'.format(file_path))
+        print('[config] loading config from file: "{}"'.format(file_path))
         self.__dict__.clear()
 
         with open(file_path, 'r') as f:
@@ -333,7 +333,7 @@ class DataConfig:
 
                 self.__dict__[k] = v
 
-        print('Done.')
+        print('[config] Successed.')
         if not display:
             return
 

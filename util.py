@@ -3,6 +3,7 @@ import numpy as np
 import torch
 import random
 import torch.nn as nn
+import torch
 
 def load_from_csv(file_path=None, data_type=None):
     with open(file_path, mode='r') as f:
@@ -23,6 +24,19 @@ def setup_seed(seed=201314):
      np.random.seed(seed)
      random.seed(seed)
      torch.backends.cudnn.deterministic = True
+    
+def convert_index_to_zero_one_sol(plan, data_config):
+    zero_one_sol = np.zeros(data_config.user_number * data_config.uav_number)
+    base = 0
+
+    for i in range(data_config.user_number):
+        ans_idx = plan[i]
+        if ans_idx != 0:
+            zero_one_sol[base + ans_idx - 1] = 1
+
+        base += data_config.uav_number
+    
+    return zero_one_sol
 
 def generate_better_allocate_plan_KMN(prob,
                                       K=1, 
@@ -32,8 +46,9 @@ def generate_better_allocate_plan_KMN(prob,
                                       convert_output_size=None,
                                       data_config=None):
     flatten_prob = prob.view(-1, 1)
-    # use average as threshold
+    # Try use average as threshold
     # threshold_p = float(torch.mean(flatten_prob.view(1, -1)))
+    # print(threshold_p)
     CUTOFF_PROB = threshold_p
 
     threshold_0 = torch.full(flatten_prob.shape, fill_value=threshold_p, dtype=torch.float32)

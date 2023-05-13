@@ -1,17 +1,16 @@
-# Implementated based on the PyTorch 
-from Model_LSTM import LSTM_Model
-from Model_LSTM_IMP import Model_LSTM_IMP
-from Model_MLP import MLP
-
 import torch
-
+import argparse
 from tqdm import tqdm
 
 from dataclass import DataConfig
 from opt3 import whale
 from util import load_from_csv, generate_better_allocate_plan_KMN
 
-import argparse
+# Implementated based on the PyTorch 
+from Model_LSTM import LSTM_Model
+from Model_LSTM_IMP import Model_LSTM_IMP
+from Model_MLP import MLP
+
 
 def eng_cost_wrapper_func(records, data_config):
     """
@@ -24,14 +23,15 @@ def eng_cost_wrapper_func(records, data_config):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--nnModel', type=str, help='使用哪一个NN模型, choose from {MLP, LSTM, LSTM_ATT}')
-    parser.add_argument('--uavNumber', type=int, help='uav的数量')
-    parser.add_argument('--userNumber', type=int, help='user的数量')
-    parser.add_argument('--batch_size', type=int, help='batch size的大小')
-    parser.add_argument('--hidden_dim', type=int, help='hidden dimension的大小')
-    parser.add_argument('--num_of_iter', type=int, help='训练的轮数')
-    parser.add_argument('--drop_out', type=float, help='drop out概率')
-    parser.add_argument('--reg_better_sol', action='store_true', help='生成更好的解')
+    parser.add_argument('--nnModel', type=str, help='使用哪一个NN模型, choose from {MLP, LSTM, LSTM_ATT}', default='MLP')
+    parser.add_argument('--uavNumber', type=int, help='uav的数量', default=3)
+    parser.add_argument('--userNumber', type=int, help='user的数量', default=10)
+    parser.add_argument('--batch_size', type=int, help='batch size的大小', default=256)
+    parser.add_argument('--hidden_dim', type=int, help='hidden dimension的大小', default=32)
+    parser.add_argument('--num_of_iter', type=int, help='训练的轮数', default=6000)
+    parser.add_argument('--reg_better_sol_k', type=int, help='训练过程中，重新生成更优解的搜索轮次', default=20)
+    parser.add_argument('--drop_out', type=float, help='drop out概率', default=0.3)
+    parser.add_argument('--reg_better_sol', action='store_true', help='生成更好的解', default=False)
     args = parser.parse_args()
 
     # 创建数据配置
@@ -48,7 +48,7 @@ if __name__ == "__main__":
     output_y_size                 = number_of_user * (number_of_uav + 1)                   # 神经网络输出dim, number_of_uav + 1 是因为 [0, 1, 2, 3], 0表示本地，1-3为无人机编号, +1是为了多出来的0
     cvt_output_size               = number_of_user * number_of_uav                         # 用于生成答案数组 (由0，1)构成
     Memory                        = batch_size * 4                                         # 设置Memory size大小
-    generate_better_sol_k         = 10
+    generate_better_sol_k         = args.reg_better_sol_k
     config_generate_better_sol_during_training = args.reg_better_sol
     assert generate_better_sol_k <= cvt_output_size
 
@@ -98,6 +98,7 @@ if __name__ == "__main__":
     # start training
     if config_generate_better_sol_during_training:
         print('[config] Generate better solution during training.')
+
         for i in tqdm(range(number_of_iter)):
             idx = i % Num_of_training_pairs
             input_feature = X[idx]
@@ -108,7 +109,8 @@ if __name__ == "__main__":
                                                                 eng_compute_func=energy_cost_function,
                                                                 idx=idx,
                                                                 convert_output_size=cvt_output_size,
-                                                                data_config=data_config)
+                                                                data_config=data_config,
+                                                                threshold_p=1 / (data_config.uav_number + 1))
             # # 如果存在能耗更低的解
             if eng_cost < ENG_COST[idx]:
                 print('Regenerate a better solution, cost', eng_cost)
@@ -126,7 +128,7 @@ if __name__ == "__main__":
             model.encode(feature=input_feature, y=Y[idx])
        
         
-    model.plot_cost()
+    model.plot_cost(model_name)
     print('[Log]: Generate {} better solutions during training'.format(log_gen_better_sol_cnt))
     # save model parameters:
     model_save_path = 'MODEL_NumOfUser:{}_NumOfUAV:{}.pt'.format(number_of_user, number_of_uav)

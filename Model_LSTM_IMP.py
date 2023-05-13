@@ -43,7 +43,7 @@ class Model_LSTM_IMP(nn.Module):
         data_config=None,
         memory_size=1000,
     ):
-        print('Model Type: LSTM w/ Attention')
+        print('[Model] Model Type: LSTM w/ Attention')
         super().__init__()
 
         # 生成解参数:
@@ -84,6 +84,20 @@ class Model_LSTM_IMP(nn.Module):
             nn.Linear(self.hidden_feature_size, self.hidden_feature_size),
             nn.Tanh()
         )
+
+        # self.transform_layer = nn.Linear(self.choice_len, self.hidden_feature_size)
+        # __encoder_layer = nn.TransformerEncoderLayer(
+        #     d_model=self.hidden_feature_size,
+        #     nhead=4,
+        #     dim_feedforward=self.hidden_feature_size,
+        #     dropout=self.dropout_rate,
+        #     activation='gelu',
+        #     batch_first=True
+        # )
+        # self.feature_encoder = nn.TransformerEncoder(
+        #     __encoder_layer,
+        #     num_layers=2
+        # )
 
         self.workload_encoder = nn.Sequential(
             nn.Linear(self.data_config.uav_number, self.hidden_feature_size),
@@ -260,9 +274,9 @@ class Model_LSTM_IMP(nn.Module):
     def load_model(model_path):
         return torch.load(model_path)
 
-    def plot_cost(self):
+    def plot_cost(self, model_name):
         import matplotlib.pyplot as plt
         plt.plot(np.arange(len(self.cost_his))*self.training_interval, self.cost_his)
         plt.ylabel('Training Loss')
         plt.xlabel('Time Frames')
-        plt.savefig('train_loss.png')
+        plt.savefig('model:{}_train_loss.png'.format(model_name))
