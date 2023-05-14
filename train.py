@@ -4,7 +4,7 @@ from tqdm import tqdm
 
 from dataclass import DataConfig
 from opt3 import whale
-from util import load_from_csv, generate_better_allocate_plan_KMN
+from util import load_from_csv, generate_better_allocate_plan_KMN, build_dir
 
 # Implementated based on the PyTorch 
 from Model_LSTM import LSTM_Model
@@ -38,7 +38,7 @@ if __name__ == "__main__":
     number_of_uav = args.uavNumber                          # numbers of UAVs 
     number_of_user = args.userNumber                        # number of users
     inner_path = 'NumOfUser:{}_NumOfUAV:{}'.format(number_of_user, number_of_uav)
-    data_config = DataConfig(load_config_from_path='CONFIG_' + inner_path + '.json')
+    data_config = DataConfig(load_config_from_path='./Config/CONFIG_' + inner_path + '.json')
 
     # 训练NN配置
     number_of_iter                = args.num_of_iter                                       # number of time frames
@@ -54,10 +54,10 @@ if __name__ == "__main__":
 
     # ---------------------------------------------------------------------------------
     # Load training data
-    X_feature_file        = 'TRAINING_NumOfUser:{}_NumOfUAV:{}_feature.csv'.format(number_of_user, number_of_uav)
-    Y_ans_file            = 'TRAINING_NumOfUser:{}_NumOfUAV:{}_solution.csv'.format(number_of_user, number_of_uav)
-    Y_eng_cost_save_path  = 'TRAINING_NumOfUser:{}_NumOfUAV:{}_energy_cost.csv'.format(number_of_user, number_of_uav)
-    ENV_file_path         = 'TRAINING_NumOfUser:{}_NumOfUAV:{}_record.csv'.format(number_of_user, number_of_uav)
+    X_feature_file        = './Dataset/TRAINING_NumOfUser:{}_NumOfUAV:{}_feature.csv'.format(number_of_user, number_of_uav)
+    Y_ans_file            = './Dataset/TRAINING_NumOfUser:{}_NumOfUAV:{}_solution.csv'.format(number_of_user, number_of_uav)
+    Y_eng_cost_save_path  = './Dataset/TRAINING_NumOfUser:{}_NumOfUAV:{}_energy_cost.csv'.format(number_of_user, number_of_uav)
+    ENV_file_path         = './Dataset/TRAINING_NumOfUser:{}_NumOfUAV:{}_record.csv'.format(number_of_user, number_of_uav)
 
     X                     = torch.Tensor(load_from_csv(file_path=X_feature_file, data_type=float))         # 读取input feature
     input_feature_size    = X.shape[-1]                                                                    # 获取input feature的维度
@@ -128,8 +128,12 @@ if __name__ == "__main__":
             model.encode(feature=input_feature, y=Y[idx])
        
         
-    model.plot_cost(model_name)
+    # 保存数据：
+    build_dir('./Saved_model')
+    build_dir('./Log')
+    # 保存training_loss
+    model.plot_cost(model_name + '_[REG_SOL={}]'.format(config_generate_better_sol_during_training))
     print('[Log]: Generate {} better solutions during training'.format(log_gen_better_sol_cnt))
     # save model parameters:
-    model_save_path = 'MODEL_NumOfUser:{}_NumOfUAV:{}.pt'.format(number_of_user, number_of_uav)
+    model_save_path = './Saved_model/MODEL_{}_NumOfUser:{}_NumOfUAV:{}.pt'.format(model_name, number_of_user, number_of_uav)
     model.save_model(model_save_path)

@@ -4,6 +4,7 @@ import torch
 import random
 import torch.nn as nn
 import torch
+import os
 
 def load_from_csv(file_path=None, data_type=None):
     with open(file_path, mode='r') as f:
@@ -17,6 +18,9 @@ def load_from_csv(file_path=None, data_type=None):
             data = np.array(data, dtype=data_type)
     
     return data
+
+def build_dir(path_to_dir):
+    os.makedirs(path_to_dir, exist_ok=True)
 
 def setup_seed(seed=201314):
      torch.manual_seed(seed)

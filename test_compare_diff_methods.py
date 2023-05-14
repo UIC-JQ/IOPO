@@ -123,23 +123,24 @@ if __name__ == '__main__':
     parser.add_argument('--nnModel', type=str, help='使用哪一个NN模型, choose from {MLP, LSTM, LSTM_ATT}')
     parser.add_argument('--uavNumber', type=int, help='uav的数量')
     parser.add_argument('--userNumber', type=int, help='user的数量')
+    parser.add_argument('--test_NN_only', action='store_true', help='user的数量', default=False)
     args = parser.parse_args()
 
     # 创建数据配置
     number_of_uav = args.uavNumber                          # numbers of UAVs 
     number_of_user = args.userNumber                        # number of users
     inner_path = 'NumOfUser:{}_NumOfUAV:{}'.format(number_of_user, number_of_uav)
-    data_config = DataConfig(load_config_from_path='CONFIG_' + inner_path + '.json')
+    data_config = DataConfig(load_config_from_path='./Config/CONFIG_' + inner_path + '.json')
 
     # ---------------------------------------------------------------------------------------------------------
     # LOAD Test data:
-    path = 'TESTING_NumOfUser:{}_NumOfUAV:{}_record.csv'.format(number_of_user, number_of_uav)
+    path = './Dataset/TESTING_NumOfUser:{}_NumOfUAV:{}_record.csv'.format(number_of_user, number_of_uav)
     Record = load_from_csv(path, data_type=float)
     
-    X_feature_file = 'TESTING_NumOfUser:{}_NumOfUAV:{}_feature.csv'.format(number_of_user, number_of_uav)
+    X_feature_file = './Dataset/TESTING_NumOfUser:{}_NumOfUAV:{}_feature.csv'.format(number_of_user, number_of_uav)
     feature = load_from_csv(X_feature_file, data_type=float)
 
-    local_rank_file = 'TESTING_NumOfUser:{}_NumOfUAV:{}_local_comp_time_ranking.csv'.format(number_of_user, number_of_uav)
+    local_rank_file = './Dataset/TESTING_NumOfUser:{}_NumOfUAV:{}_local_comp_time_ranking.csv'.format(number_of_user, number_of_uav)
     local_time_rankings = load_from_csv(local_rank_file)
     # ---------------------------------------------------------------------------------------------------------
     setup_seed()                     # 设置固定的随机种子
@@ -156,13 +157,18 @@ if __name__ == '__main__':
         print('Loading model LSTM w/ Attention')
         model = Model_LSTM_IMP
 
-    model = model.load_model('MODEL_NumOfUser:{}_NumOfUAV:{}.pt'.format(number_of_user, number_of_uav))
+    model = model.load_model('./Saved_model/MODEL_{}_NumOfUser:{}_NumOfUAV:{}.pt'.format(model_name, number_of_user, number_of_uav))
     try_method(Record, 
                method=compare_method(allocate_plan_NN_model),
                method_name='NN Model : {}'.format(str(model_name)),
                model=model,
                input_feature=feature,
                print_plan=False)
+    
+    if args.test_NN_only:
+        print('[Config] Only test NN method only.')
+        exit(0)
+
     print('-' * 50)
     try_method(Record,
                method=compare_method(allocate_plan_by_local_compute_t_and_uav_comp_speed),

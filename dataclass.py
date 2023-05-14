@@ -5,6 +5,7 @@ import numpy as np
 import argparse
 from tqdm import tqdm
 from opt3 import whale, compute_local_eng_cost, compute_upload_eng_cost
+from util import build_dir
 
 class NumpyEncoder(json.JSONEncoder):
     def default(self, obj):
@@ -29,8 +30,6 @@ class DataConfig:
         self.TIME_SLOT_LENGTH               = 0.125 * 1e-3     # s equal to 0.125ms,time of one slot
         self.CHANNEL_POWER                  = 2                # 信道传输功率
         self.SUB_CHANNEL_FREQUENCY          = 3.7e11           # 子频道的中央频率 Hz
-        # self.__SUB_CHANNEL_K_L              = 0.0000001
-        # self.__SUB_CHANNEL_K_H              = 0.0008
         self.SUB_CHANNEL_K                  = 0.0000001          # 每个子频道中央频率的吸收参数 db/m
         self.CHANNEL_BANDWIDTH              = 3e10             # Hz
 
@@ -70,6 +69,7 @@ class DataConfig:
         self.__UAV_COMP_CAP_HIGHER_B     = 60000
         self.uav_computational_capacity = [np.random.randint(self.__UAV_COMP_CAP_LOWER_B, self.__UAV_COMP_CAP_HIGHER_B)
                                                 for _ in range(self.uav_number)]
+        # 5/12: 使用固定的无人机计算速度
         self.uav_computational_capacity = [
             15000, 20000, 30000
         ]
@@ -91,8 +91,8 @@ class DataConfig:
 
         # -----------------------------------------------------------------------
         # 用于生成数据集的设置
-        self.dataset_board_x_size = 600
-        self.dataset_board_y_size = 800
+        self.dataset_board_x_size = 600                    # 场地大小
+        self.dataset_board_y_size = 800                    # 场地大小
 
         # Date 5/9: 使用随机生成无人机位置
         __UAV_POS_X = np.random.uniform(0, self.dataset_board_x_size, size=(self.uav_number, 1))
@@ -193,7 +193,8 @@ class DataConfig:
                 #     acceptable_time = __acceptable_time_h_b + self.dataset_dataset_cut_off_time
                 # else:
                 #     acceptable_time = np.random.randint(__acceptable_time_l_b, __acceptable_time_h_b) + self.dataset_dataset_cut_off_time     # 任务可以接受的完成时间
-                # 2. 本地的计算时间是最慢的可接受时间
+
+                # 2. 5/12: 本地的计算时间是最慢的可接受时间
                 acceptable_time = __acceptable_time_h_b
 
                 record.append(task_size)
@@ -444,6 +445,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--uavNumber', type=int, help='uav的数量')
     parser.add_argument('--userNumber', type=int, help='user的数量')
+    parser.add_argument('--penalty', type=int, help='超时惩罚')
     parser.add_argument('--number_of_train_data', type=int, help='train_data的数量')
     parser.add_argument('--number_of_test_data', type=int, help='test_data的数量')
     parser.add_argument('--using_random_sol', action='store_true', help='是否选择random方法生成解', default=False)
@@ -455,19 +457,25 @@ if __name__ == '__main__':
     feature_norm                           = True
     exclude_local_choice_when_generating_y = False
     generate_sol_using_random              = args.using_random_sol
+    penalty                                = args.penalty
     if generate_sol_using_random:
         print('[Data Generation] Using randomly generated solution')
     else:
         print('[Data Generation] Using greedly generated solution')
 
-    dataObj                                = DataConfig(n_of_user=number_of_user, n_of_uav=number_of_uav)
+    # 生成数据对象
+    dataObj = DataConfig(n_of_user=number_of_user,
+                         n_of_uav=number_of_uav,
+                         penalty=penalty)
     
     # 保存config
-    dataObj.save_config('CONFIG_NumOfUser:{}_NumOfUAV:{}.json'.format(number_of_user, number_of_uav))
+    build_dir('./Config')
+    build_dir('./Dataset')
+    dataObj.save_config('./Config/CONFIG_NumOfUser:{}_NumOfUAV:{}.json'.format(number_of_user, number_of_uav))
 
     # 生成数据集:
     dataObj.generate_dataset(num_of_data_points=args.number_of_train_data,
-                             saving_path='./TRAINING_NumOfUser:{}_NumOfUAV:{}'.format(number_of_user, number_of_uav),
+                             saving_path='./Dataset/TRAINING_NumOfUser:{}_NumOfUAV:{}'.format(number_of_user, number_of_uav),
                              K=100,
                              data_config=dataObj,
                              require_feature_norm=feature_norm, 
@@ -475,7 +483,7 @@ if __name__ == '__main__':
                              generate_answer_using_random_optimize=generate_sol_using_random)
 
     dataObj.generate_dataset(num_of_data_points=args.number_of_test_data,
-                             saving_path='./TESTING_NumOfUser:{}_NumOfUAV:{}'.format(number_of_user, number_of_uav),
+                             saving_path='./Dataset/TESTING_NumOfUser:{}_NumOfUAV:{}'.format(number_of_user, number_of_uav),
                              K=1,
                              data_config=dataObj,
                              require_feature_norm=feature_norm,

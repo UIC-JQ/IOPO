@@ -177,4 +177,4 @@ class MLP(nn.Module):
         plt.plot(np.arange(len(self.cost_his))*self.training_interval, self.cost_his)
         plt.ylabel('Training Loss')
         plt.xlabel('Time Frames')
-        plt.savefig('model:{}_train_loss.png'.format(model_name))
+        plt.savefig('./Log/model:{}_train_loss.png'.format(model_name))
