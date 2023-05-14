@@ -131,6 +131,7 @@ if __name__ == '__main__':
     number_of_user = args.userNumber                        # number of users
     inner_path = 'NumOfUser:{}_NumOfUAV:{}'.format(number_of_user, number_of_uav)
     data_config = DataConfig(load_config_from_path='./Config/CONFIG_' + inner_path + '.json')
+    data_config.overtime_penalty = 0                        # 显示energy cost的时候，去掉overtime penalty.
 
     # ---------------------------------------------------------------------------------------------------------
     # LOAD Test data:

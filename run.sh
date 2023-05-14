@@ -1,27 +1,30 @@
 # 生成数据集配置
 uav_number=3;
 user_number=10;
-number_of_train_data=300;
-number_of_test_data=50;
-overtime_penalty=300
+number_of_train_data=15000;
+number_of_test_data=5000;
+overtime_penalty=100
+# 100 -> 1/4的energy cost
+# 200 -> 1/2的energy cost
 
 # ---------------------
 # 模型配置
-hidden_dim=128;
+hidden_dim=256;
 drop_out=0.20;
-reg_better_sol_number=10;
-# train_iter=`expr $number_of_train_data \* 10`
-train_iter=2000
+reg_better_sol_number=15;
+__train_model_every_k_step=10;
+__epoch_num=5;
+train_iter=`expr $number_of_train_data \* $__train_model_every_k_step \* $__epoch_num`;
+# train_iter=150                                # 用于调试
 
 # 生成数据
-# echo "[System] Generating training and testing dataset ..."
-# python dataclass.py --uavNumber $uav_number \
-#                     --userNumber $user_number \
-#                     --penalty $overtime_penalty \
-#                     --number_of_train_data $number_of_train_data \
-#                     --number_of_test_dat $number_of_test_data \
-#                     # --using_random_sol 
-
+echo "[System] Generating training and testing dataset ..."
+python dataclass.py --uavNumber $uav_number \
+                    --userNumber $user_number \
+                    --penalty $overtime_penalty \
+                    --number_of_train_data $number_of_train_data \
+                    --number_of_test_dat $number_of_test_data \
+                    # --using_random_sol 
 
 # -----------------------------------------------------
 # 模型1MLP:

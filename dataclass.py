@@ -30,14 +30,15 @@ class DataConfig:
         self.TIME_SLOT_LENGTH               = 0.125 * 1e-3     # s equal to 0.125ms,time of one slot
         self.CHANNEL_POWER                  = 2                # 信道传输功率
         self.SUB_CHANNEL_FREQUENCY          = 3.7e11           # 子频道的中央频率 Hz
-        self.SUB_CHANNEL_K                  = 0.0000001          # 每个子频道中央频率的吸收参数 db/m
+        self.SUB_CHANNEL_K                  = 0.0000001        # 每个子频道中央频率的吸收参数 db/m
         self.CHANNEL_BANDWIDTH              = 3e10             # Hz
 
         # ---------------------------------------
         # modify following variables (every test cases)
-        self.overtime_penalty               = penalty                # overtime penalty
-        self.user_number                    = n_of_user              # number of users
-        self.uav_number                     = n_of_uav               # number of uavs
+        self.overtime_penalty               = penalty             # overtime penalty
+        self.user_number                    = n_of_user           # number of users
+        self.uav_number                     = n_of_uav            # number of uavs
+        self.CHANNEL_BANDWIDTH             /= n_of_user           # 用户均分总带宽量
 
         # 板子参数：
         self.IRS_delta                = 0.05                      # IRS width 板子宽度 (unit: meter)
@@ -51,8 +52,8 @@ class DataConfig:
         self.user_computational_capacity = [np.random.randint(__USER_C_LOWER_BOUND, __USER_C_HIGHER_BOUND)
                                                  for _ in range(self.user_number)]    
         # 用户计算功率 j/slot
-        __USER_C_POWER_LOWER_B      = 10
-        __USER_C_POWER_HIGHER_B     = 30
+        __USER_C_POWER_LOWER_B      = 0.01                  # 80W
+        __USER_C_POWER_HIGHER_B     = 0.03                  # 240W
         self.user_computation_power    = [np.random.uniform(__USER_C_POWER_LOWER_B, __USER_C_POWER_HIGHER_B)
                                                  for _ in range(self.user_number)]
         
@@ -65,17 +66,17 @@ class DataConfig:
         # -----------------------------------------------------------------------
         # 无人机:
         # 1. the computation rate of UAVs cycles/slot
-        self.__UAV_COMP_CAP_LOWER_B      = 50000
-        self.__UAV_COMP_CAP_HIGHER_B     = 60000
-        self.uav_computational_capacity = [np.random.randint(self.__UAV_COMP_CAP_LOWER_B, self.__UAV_COMP_CAP_HIGHER_B)
-                                                for _ in range(self.uav_number)]
+        # self.__UAV_COMP_CAP_LOWER_B      = 50000
+        # self.__UAV_COMP_CAP_HIGHER_B     = 60000
+        # self.uav_computational_capacity = [np.random.randint(self.__UAV_COMP_CAP_LOWER_B, self.__UAV_COMP_CAP_HIGHER_B)
+        #                                         for _ in range(self.uav_number)]
         # 5/12: 使用固定的无人机计算速度
         self.uav_computational_capacity = [
-            15000, 20000, 30000
+            20000, 30000, 40000
         ]
         # 2.无人机功率 j/slot
-        __UAV_POWER_LOW_B            = 0.05
-        __UAV_POWER_HIGH_B           = 0.08
+        __UAV_POWER_LOW_B            = 0.015           # 400W
+        __UAV_POWER_HIGH_B           = 0.045           # 1600W
         self.uav_computational_power    = [np.random.uniform(__UAV_POWER_LOW_B, __UAV_POWER_HIGH_B)
                                                 for _ in range(self.uav_number)]
         # 3.无人机位置
@@ -101,13 +102,11 @@ class DataConfig:
         self.uav_coordinate = np.concatenate([__UAV_POS_X, __UAV_POS_Y, __UAV_POS_Z], axis=1)
 
         # 单位：bit
-        self.dataset_user_task_size_l_b = 1  * 1000         # kilo bit
-        # self.dataset_user_task_size_h_b = 500 * 1000          # Kilo bit
-        self.dataset_user_task_size_h_b = 3 * 1000          # Kilo bit
+        self.dataset_user_task_size_l_b = 32 * 8                  # bit (==32 Byte)
+        self.dataset_user_task_size_h_b = 100 * 1000 * 8          # bit (==100 KB)
 
         # 单位: needed cpu cycles / bit
-        self.dataset_cpb_l_b = 149
-        # self.dataset_cpb_l_b = 40
+        self.dataset_cpb_l_b = 40
         self.dataset_cpb_h_b = 150
         
         # 超过本地计算需要时间多久是可以的
@@ -183,19 +182,9 @@ class DataConfig:
                 cpb = np.random.randint(self.dataset_cpb_l_b, self.dataset_cpb_h_b)
                 cpu_cycles_need = task_size * cpb                                                                   # 2.任务需要的cpu数量
 
-                __acceptable_time_l_b = np.ceil( (cpu_cycles_need) / self.__UAV_COMP_CAP_LOWER_B )                  # __UAV_COMP_CAP_LOWER_B: 计算最慢的无人机的计算速度
                 __local_compute_time = (cpu_cycles_need) / self.user_computational_capacity[user_idx]
-                __acceptable_time_h_b = np.ceil(__local_compute_time) 
-
-                # acceptable time
-                # 1.随机生成
-                # if __acceptable_time_h_b == __acceptable_time_l_b:
-                #     acceptable_time = __acceptable_time_h_b + self.dataset_dataset_cut_off_time
-                # else:
-                #     acceptable_time = np.random.randint(__acceptable_time_l_b, __acceptable_time_h_b) + self.dataset_dataset_cut_off_time     # 任务可以接受的完成时间
-
                 # 2. 5/12: 本地的计算时间是最慢的可接受时间
-                acceptable_time = __acceptable_time_h_b
+                acceptable_time = np.ceil(__local_compute_time) 
 
                 record.append(task_size)
                 record.append(cpu_cycles_need)
@@ -476,7 +465,7 @@ if __name__ == '__main__':
     # 生成数据集:
     dataObj.generate_dataset(num_of_data_points=args.number_of_train_data,
                              saving_path='./Dataset/TRAINING_NumOfUser:{}_NumOfUAV:{}'.format(number_of_user, number_of_uav),
-                             K=100,
+                             K=30,
                              data_config=dataObj,
                              require_feature_norm=feature_norm, 
                              exclude_local_options_when_generating_y=exclude_local_choice_when_generating_y,
