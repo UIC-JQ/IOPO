@@ -113,7 +113,7 @@ if __name__ == "__main__":
                                                                 threshold_p=1 / (data_config.uav_number + 1))
             # # 如果存在能耗更低的解
             if eng_cost < ENG_COST[idx]:
-                print('Regenerate a better solution, cost', eng_cost)
+                # print('Regenerate a better solution, cost', eng_cost)
                 ENG_COST[idx, :] = eng_cost
                 Y[idx, :]        = torch.Tensor(new_y)
                 log_gen_better_sol_cnt += 1

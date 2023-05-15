@@ -47,8 +47,8 @@ class DataConfig:
         self.IRS_z_number             = 5 #IRS z-axis refector
 
         # the computation rate of users (local) UEDs cycles/slot
-        __USER_C_LOWER_BOUND        = 10000
-        __USER_C_HIGHER_BOUND       = 20000
+        __USER_C_LOWER_BOUND        = 8000
+        __USER_C_HIGHER_BOUND       = 10000
         self.user_computational_capacity = [np.random.randint(__USER_C_LOWER_BOUND, __USER_C_HIGHER_BOUND)
                                                  for _ in range(self.user_number)]    
         # 用户计算功率 j/slot
@@ -72,11 +72,11 @@ class DataConfig:
         #                                         for _ in range(self.uav_number)]
         # 5/12: 使用固定的无人机计算速度
         self.uav_computational_capacity = [
-            20000, 30000, 40000
+            25000, 30000
         ]
         # 2.无人机功率 j/slot
-        __UAV_POWER_LOW_B            = 0.015           # 400W
-        __UAV_POWER_HIGH_B           = 0.045           # 1600W
+        __UAV_POWER_LOW_B            = 0.015           
+        __UAV_POWER_HIGH_B           = 0.045           
         self.uav_computational_power    = [np.random.uniform(__UAV_POWER_LOW_B, __UAV_POWER_HIGH_B)
                                                 for _ in range(self.uav_number)]
         # 3.无人机位置
@@ -356,7 +356,7 @@ class DataConfig:
         heapq.heapify(uav_compute_speed)
         idx = 0
         
-        while uav_compute_speed:
+        while uav_compute_speed and idx < self.user_number:
             _, user_idx = local_t_ranking[idx]
             # print('user index', user_idx)
 

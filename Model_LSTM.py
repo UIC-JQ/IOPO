@@ -53,28 +53,12 @@ class LSTM_Model(nn.Module):
         self.cost_his = []
         
     def _build_model(self):
-        self.encoder_h = nn.Sequential(
-            nn.Linear(self.input_feature_size, self.hidden_feature_size),
-            nn.ReLU(),
-            nn.Dropout(self.dropout_rate),
-            nn.Linear(self.hidden_feature_size, self.hidden_feature_size),
-            nn.Sigmoid()
-        )
-
-        self.encoder_c = nn.Sequential(
-            nn.Linear(self.input_feature_size, self.hidden_feature_size),
-            nn.ReLU(),
-            nn.Dropout(self.dropout_rate),
-            nn.Linear(self.hidden_feature_size, self.hidden_feature_size),
-            nn.Sigmoid()
-        )
-
-        self.dec_enc = nn.Sequential(
+        self.encoder = nn.Sequential(
             nn.Linear(self.each_person_feature_size, self.hidden_feature_size),
             nn.ReLU(),
             nn.Dropout(self.dropout_rate),
             nn.Linear(self.hidden_feature_size, self.hidden_feature_size),
-            nn.ReLU()
+            nn.Tanh()
         )
 
         self.uav_overload_enc = nn.Sequential(
@@ -82,7 +66,7 @@ class LSTM_Model(nn.Module):
             nn.ReLU(),
             nn.Dropout(self.dropout_rate),
             nn.Linear(self.hidden_feature_size, self.hidden_feature_size),
-            nn.ReLU()
+            nn.Tanh()
         )
 
         self.decoder = nn.LSTMCell(input_size=self.hidden_feature_size,
@@ -129,9 +113,9 @@ class LSTM_Model(nn.Module):
         overload_factor = torch.ones((self.batch_size, self.data_config.uav_number), requires_grad=False)
 
         # 1st stage: encode:
-        # encoded = self.encoder(x)
-        dec_h = self.encoder_h(x)
-        dec_c = self.encoder_c(x)
+        x_each_person_features = self.encoder(x_each_person_features)
+        dec_h = torch.zeros((self.batch_size, self.hidden_feature_size))
+        dec_c = torch.zeros((self.batch_size, self.hidden_feature_size))
 
         # 2nd stage: decode:
         loss = 0
@@ -143,14 +127,13 @@ class LSTM_Model(nn.Module):
             # 处理无人机的overload信息
             x_uav_capacity_features = torch.div(x_uav_capacity_features, overload_factor)
 
-            # 开始输入模型
-            dec_h, dec_c = self.decoder(self.dec_enc(it_x), (dec_h, dec_c))
-            # output = output.squeeze(0)
+            # 开始输入Decoder
+            dec_h, dec_c = self.decoder(it_x, (dec_h, dec_c))
 
-            # concatenate在一起
+            # encode 无人机workload信息
             x_uavs = self.uav_overload_enc(x_uav_capacity_features)
+            # concatenate在一起
             output = torch.cat([dec_h, x_uavs], dim=1)
-            # formula: output = W([output; overload_info]) + b
             output = self.final_linear_layer(output)
 
             # 计算loss
@@ -177,21 +160,19 @@ class LSTM_Model(nn.Module):
         overload_factor = torch.ones((1, data_config.uav_number))
 
         # 1st stage: encode:
-        dec_h = self.encoder_h(x).reshape(-1, self.hidden_feature_size)
-        dec_c = self.encoder_c(x).reshape(-1, self.hidden_feature_size)
+        x_each_person_features = self.encoder(x_each_person_features)
+        dec_h = torch.zeros(1, self.hidden_feature_size)
+        dec_c = torch.zeros(1, self.hidden_feature_size)
 
         # 2nd stage: decode:
         ans = []
         probs = []
-
         for i in range(data_config.user_number):
-            # 预测第i个人
+            # 拿到feature:
             it_x = x_each_person_features[:, i]
             x_uav_capacity_features = torch.div(x_uav_capacity_features, overload_factor)
 
-            dec_h, dec_c = self.decoder(self.dec_enc(it_x), (dec_h, dec_c))
-            # output, (h0, c0) = self.decoder(it_x.unsqueeze(0), (h0, c0))
-            # output = output.squeeze(0)
+            dec_h, dec_c = self.decoder(it_x, (dec_h, dec_c))
 
             x_uavs = self.uav_overload_enc(x_uav_capacity_features)
             output = torch.cat([dec_h, x_uavs], dim=1)

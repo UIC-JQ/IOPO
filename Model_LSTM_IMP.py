@@ -85,20 +85,6 @@ class Model_LSTM_IMP(nn.Module):
             nn.Tanh()
         )
 
-        # self.transform_layer = nn.Linear(self.choice_len, self.hidden_feature_size)
-        # __encoder_layer = nn.TransformerEncoderLayer(
-        #     d_model=self.hidden_feature_size,
-        #     nhead=4,
-        #     dim_feedforward=self.hidden_feature_size,
-        #     dropout=self.dropout_rate,
-        #     activation='gelu',
-        #     batch_first=True
-        # )
-        # self.feature_encoder = nn.TransformerEncoder(
-        #     __encoder_layer,
-        #     num_layers=2
-        # )
-
         self.workload_encoder = nn.Sequential(
             nn.Linear(self.data_config.uav_number, self.hidden_feature_size),
             nn.ReLU(),

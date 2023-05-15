@@ -14,9 +14,10 @@ def try_method(X, method, method_name, **kws):
     """
     测试模型method, 并统计相关结果
     """
-    avg_eng_cost, overtime_records_ratio, avg_overtime_ratio, avg_overtime_people = method(X, data_config, **kws)
+    avg_eng_cost, avg_ovt_penalized_eng_cost, overtime_records_ratio, avg_overtime_ratio, avg_overtime_people = method(X, data_config, **kws)
     print('--> 方法名: [%s]' % method_name)
-    print('平均每条record的energy cost:', avg_eng_cost)
+    print('平均每条record的energy cost (不包含超时penality):', avg_eng_cost)
+    print('平均每条record的energy cost (包含超时penality):', avg_ovt_penalized_eng_cost)
     print('所有record中，存在超时user的record比例: {:.3f}%'.format(overtime_records_ratio * 100))
     print('所有存在超时user的record中，平均超时人数占总人数的比例: {:.3f}%'.format(avg_overtime_ratio * 100))
     print('所有存在超时user的record中，平均超时人数为', avg_overtime_people)
@@ -84,9 +85,10 @@ def allocate_plan_by_local_compute_t_and_uav_comp_speed(record, data_config: Dat
 
     return __allocate_plan
 
-def compare_method(allocate_plan_generation_method):
+def compare_method(allocate_plan_generation_method, PENALTY):
     def inner(X, data_config, **kws):
         total_eng_cost = 0                      # 总的energy cost
+        total_overtime_penalized_eng_cost = 0   # 包含超时penalty的energy cost
         total_overtime_records_num = 0          # 有多少测试数据的分配方案中，会存在有超时的用户
         store_overtime_ratio = []               # 存在超时的分配方案中，超时用户的比例。
         store_overtime_people = []              # 存在超时的分配方案中，超时用户的人数。
@@ -103,16 +105,19 @@ def compare_method(allocate_plan_generation_method):
                 total_overtime_records_num += 1
                 store_overtime_ratio.append(len(overtime_logs) / data_config.user_number)
                 store_overtime_people.append(len(overtime_logs))
+                total_overtime_penalized_eng_cost += (PENALTY) * len(overtime_logs)
 
             total_eng_cost += energy
+            total_overtime_penalized_eng_cost += energy
 
         # 计算stats: 
         avg_eng_cost                    = total_eng_cost / len(X)
+        avg_overtime_pe_eng_cost        = total_overtime_penalized_eng_cost / len(X)
         overtime_records_ratio          = total_overtime_records_num / len(X)
         avg_overtime_ratio              = sum(store_overtime_ratio) / len(store_overtime_ratio) if len(store_overtime_ratio) else 0
         avg_overtime_people             = sum(store_overtime_people) / len(store_overtime_people) if len(store_overtime_people) else 0
 
-        return avg_eng_cost, overtime_records_ratio, avg_overtime_ratio, avg_overtime_people
+        return avg_eng_cost, avg_overtime_pe_eng_cost, overtime_records_ratio, avg_overtime_ratio, avg_overtime_people
     
     return inner
 
@@ -131,6 +136,7 @@ if __name__ == '__main__':
     number_of_user = args.userNumber                        # number of users
     inner_path = 'NumOfUser:{}_NumOfUAV:{}'.format(number_of_user, number_of_uav)
     data_config = DataConfig(load_config_from_path='./Config/CONFIG_' + inner_path + '.json')
+    OVERTIME_PENALTY = data_config.overtime_penalty
     data_config.overtime_penalty = 0                        # 显示energy cost的时候，去掉overtime penalty.
 
     # ---------------------------------------------------------------------------------------------------------
@@ -160,7 +166,7 @@ if __name__ == '__main__':
 
     model = model.load_model('./Saved_model/MODEL_{}_NumOfUser:{}_NumOfUAV:{}.pt'.format(model_name, number_of_user, number_of_uav))
     try_method(Record, 
-               method=compare_method(allocate_plan_NN_model),
+               method=compare_method(allocate_plan_NN_model, OVERTIME_PENALTY),
                method_name='NN Model : {}'.format(str(model_name)),
                model=model,
                input_feature=feature,
@@ -172,17 +178,17 @@ if __name__ == '__main__':
 
     print('-' * 50)
     try_method(Record,
-               method=compare_method(allocate_plan_by_local_compute_t_and_uav_comp_speed),
+               method=compare_method(allocate_plan_by_local_compute_t_and_uav_comp_speed, OVERTIME_PENALTY),
                method_name='Greedy (by Local Compute time and uav Compute speed)',
                ranking=local_time_rankings,
                print_plan=False)
     print('-' * 50)
-    try_method(Record, compare_method(allocate_plan_all_upload_random), 'ALL UPLOAD OPTIMIZED RANDOM (K=1)', K=1, print_plan=False)
-    try_method(Record, compare_method(allocate_plan_all_upload_random), 'ALL UPLOAD OPTIMIZED RANDOM (K=10)', K=10, print_plan=False)
-    try_method(Record, compare_method(allocate_plan_all_upload_random), 'ALL UPLOAD OPTIMIZED RANDOM (K=50)', K=50, print_plan=False)
+    try_method(Record, compare_method(allocate_plan_all_upload_random, OVERTIME_PENALTY), 'ALL UPLOAD OPTIMIZED RANDOM (K=1)', K=1, print_plan=False)
+    try_method(Record, compare_method(allocate_plan_all_upload_random, OVERTIME_PENALTY), 'ALL UPLOAD OPTIMIZED RANDOM (K=10)', K=10, print_plan=False)
+    try_method(Record, compare_method(allocate_plan_all_upload_random, OVERTIME_PENALTY), 'ALL UPLOAD OPTIMIZED RANDOM (K=25)', K=25, print_plan=False)
     print('-' * 50)
-    try_method(Record, compare_method(allocate_plan_local_and_upload_random), '(LOCAL + UPLOAD) OPTIMIZED RANDOM (K=1)', K=1, print_plan=False)
-    try_method(Record, compare_method(allocate_plan_local_and_upload_random), '(LOCAL + UPLOAD) OPTIMIZED RANDOM (K=10)', K=10, print_plan=False)
-    try_method(Record, compare_method(allocate_plan_local_and_upload_random), '(LOCAL + UPLOAD) OPTIMIZED RANDOM (K=50)', K=50, print_plan=False)
+    try_method(Record, compare_method(allocate_plan_local_and_upload_random, OVERTIME_PENALTY), '(LOCAL + UPLOAD) OPTIMIZED RANDOM (K=1)', K=1, print_plan=False)
+    try_method(Record, compare_method(allocate_plan_local_and_upload_random, OVERTIME_PENALTY), '(LOCAL + UPLOAD) OPTIMIZED RANDOM (K=10)', K=10, print_plan=False)
+    try_method(Record, compare_method(allocate_plan_local_and_upload_random, OVERTIME_PENALTY), '(LOCAL + UPLOAD) OPTIMIZED RANDOM (K=25)', K=25, print_plan=False)
     print('-' * 50)
-    try_method(Record, compare_method(allocate_plan_all_local), 'ALL LOCAL', K=1, print_plan=False)
+    try_method(Record, compare_method(allocate_plan_all_local, OVERTIME_PENALTY), 'ALL LOCAL', K=1, print_plan=False)
