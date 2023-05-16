@@ -6,6 +6,7 @@ import argparse
 from tqdm import tqdm
 from opt3 import whale, compute_local_eng_cost, compute_upload_eng_cost
 from util import build_dir
+import collections
 
 class NumpyEncoder(json.JSONEncoder):
     def default(self, obj):
@@ -47,7 +48,7 @@ class DataConfig:
         self.IRS_z_number             = 5 #IRS z-axis refector
 
         # the computation rate of users (local) UEDs cycles/slot
-        __USER_C_LOWER_BOUND        = 8000
+        __USER_C_LOWER_BOUND        = 5000
         __USER_C_HIGHER_BOUND       = 10000
         self.user_computational_capacity = [np.random.randint(__USER_C_LOWER_BOUND, __USER_C_HIGHER_BOUND)
                                                  for _ in range(self.user_number)]    
@@ -72,7 +73,7 @@ class DataConfig:
         #                                         for _ in range(self.uav_number)]
         # 5/12: 使用固定的无人机计算速度
         self.uav_computational_capacity = [
-            25000, 30000
+            25000, 30000, 40000
         ]
         # 2.无人机功率 j/slot
         __UAV_POWER_LOW_B            = 0.015           
@@ -129,28 +130,40 @@ class DataConfig:
                          data_config=None,
                          require_feature_norm=True,
                          exclude_local_options_when_generating_y=False,
-                         generate_answer_using_random_optimize=False):
+                         generate_answer_using_random_optimize=False,
+                         generate_answer_without_time_constraint=False,
+                         generate_answer_w_time_constraint=True):
         # config:
         K = self.dataset_random_times_for_selecting_best_sol if not K else K            # 生成y需要的随机次数
 
         # 数据存储:
-        # 1. record
+        # 1.1 record
         # 作用：用来优化板子的phase
         # format: (user1_x, user1_y, user_1_z, user2_x, user_2_y, user2_z, ..., user_1_task_size, user_1_cpu_needed, user_1_tolerance)
         data_Records = [] 
+        # 1.1 
+        # 作用：Greedy生成解需要的信息，用在greedy策略中，动态生成解
         data_local_compute_time_rank = []
+        # 1.2 
+        # 作用：overtime constraint生成解算法，需要的信息，用在greedy (with overtime constraint)策略中，动态生成解.
+        data_user_to_uav_infos = []
 
+        # -------------------------------------------
         # 2. feature:
         data_X_features = []
 
+        # -------------------------------------------
         # 3. Y:
         # 作用: 用来充当NN的reference answer, 用来计算loss
         data_Y = []
 
+        # -------------------------------------------
         # 4. energy cost:
         # 作用：记录每一个reference answer的总系统能耗
         data_eng_cost = []
 
+        # -------------------------------------------
+        # 5. system log:
         # 打印生成解的平均energy cost
         log_cummulate_eng_cost = 0
 
@@ -158,24 +171,29 @@ class DataConfig:
         # 无人机的计算速度
         feature_uav_computational_capacity = self.uav_computational_capacity
 
-
         for _ in tqdm(range(num_of_data_points)):
+            # 每条数据的记录信息：
+            # 1.record:
             record = []
-            # FEATURE2:
-            # 每个用户每个选择的energy cost
+
+            # 每个用户的每个选择的energy cost
             feature_user_choice_eng_cost = []
 
             # 生成用户坐标：(x, y, z)
             user_coordinate = []
 
+            local_compute_time_rank = []
+            user_to_uav_infos = collections.defaultdict(list)
+            # -------------------------------------------------------
+            # 开始生成数据集
             for _ in range(self.user_number):
+                # 随机生成用户坐标
                 x = np.random.uniform(0, self.dataset_board_x_size)
                 y = np.random.uniform(0, self.dataset_board_y_size)
                 record.extend([x, y, 0])
                 user_coordinate.append(np.array([x, y, 0]))
             
-            # 生成task record
-            local_compute_time_rank = []
+
             for user_idx in range(self.user_number):
                 task_size = np.random.randint(self.dataset_user_task_size_l_b, self.dataset_user_task_size_h_b)     # 1.用户的task大小
 
@@ -183,13 +201,11 @@ class DataConfig:
                 cpu_cycles_need = task_size * cpb                                                                   # 2.任务需要的cpu数量
 
                 __local_compute_time = (cpu_cycles_need) / self.user_computational_capacity[user_idx]
-                # 2. 5/12: 本地的计算时间是最慢的可接受时间
-                acceptable_time = np.ceil(__local_compute_time) 
+                acceptable_time = np.ceil(__local_compute_time)                                                     # 3. 本地的计算时间是最慢的可接受时间
 
                 record.append(task_size)
                 record.append(cpu_cycles_need)
-                record.append(acceptable_time) 
-                local_compute_time_rank.append((__local_compute_time, user_idx))
+                record.append(acceptable_time)
                 # ----------------------------------------------------------------
                 # 生成Feature:
                 # feature2.1: 用户本地计算的energy cost
@@ -202,20 +218,27 @@ class DataConfig:
 
                     feature_user_choice_eng_cost.append(f_user_local_eng_cost)
 
+                # 用于生成anwer:
+                local_compute_time_rank.append((__local_compute_time, f_user_local_eng_cost, user_idx))
+
                 # 生成Feature:
                 # feature2.2: 用户上传无人机计算的energy cost
                 for uav_idx in range(self.uav_number):
-                    f_user_upload_eng_cost = compute_upload_eng_cost(task_size=cpu_cycles_need,
-                                                                     time_threshold=acceptable_time,
-                                                                     uav_compute_speed=self.uav_computational_capacity[uav_idx],
-                                                                     uav_compute_power=self.uav_computational_power[uav_idx],
-                                                                     penalty=self.overtime_penalty,
-                                                                     uav_coordinate=self.uav_coordinate[uav_idx],
-                                                                     user_coordinate=user_coordinate[user_idx],
-                                                                     user_transmit_power=self.user_transmit_power[user_idx],
-                                                                     data_config=data_config)
+                    f_user_upload_eng_cost, \
+                    uav_compute_time,       \
+                    uav_transmit_time       = compute_upload_eng_cost(task_size=cpu_cycles_need,
+                                                                      package_size=task_size,
+                                                                      time_threshold=acceptable_time,
+                                                                      uav_compute_speed=self.uav_computational_capacity[uav_idx],
+                                                                      uav_compute_power=self.uav_computational_power[uav_idx],
+                                                                      penalty=self.overtime_penalty,
+                                                                      uav_coordinate=self.uav_coordinate[uav_idx],
+                                                                      user_coordinate=user_coordinate[user_idx],
+                                                                      user_transmit_power=self.user_transmit_power[user_idx],
+                                                                      data_config=data_config)
 
                     feature_user_choice_eng_cost.append(f_user_upload_eng_cost)
+                    user_to_uav_infos[user_idx].append([uav_idx, f_user_upload_eng_cost, uav_compute_time, uav_transmit_time])
 
             # ----------存储数据---------------
             # 1.存储record
@@ -227,20 +250,23 @@ class DataConfig:
                 feature_uav_computational_capacity
             ]
 
+            # 对feature进行norm处理
             if require_feature_norm:
-                # data_X_features.append(np.concatenate([self.__normalize_feature(f) for f in Features]))
-                data_X_features.append(np.concatenate([self.__normalize_feature(Features[0]), self.__divide_by_sum_nrom(Features[1])]))
+                data_X_features.append(np.concatenate([self.__z_score_norm(Features[0]), self.__divide_by_sum_norm(Features[1])]))
             else:
                 data_X_features.append(np.concatenate(Features))
 
             # 3.存储allocation plan:
-            # 生成当前record的解 (由0, 1构成，每个user最多有一个1)
-            if not generate_answer_using_random_optimize:
+            # 生成当前record的解 (由0~uav_number构成), 0表示本地
+            local_compute_time_rank.sort(key=lambda x: (x[0], -x[1]), reverse=True)
+            if generate_answer_w_time_constraint:
+                e_cost, sol, _ = self.allocate_with_no_overtime_constraint(record, local_compute_time_rank, user_to_uav_infos)
+                Y = sol
+            elif generate_answer_without_time_constraint:
                 # Greedy 生成策略
-                local_compute_time_rank.sort(reverse=True)
                 e_cost, sol, _ = self.allocate_by_local_time_and_uav_comp_speed(record, local_compute_time_rank)
                 Y = sol
-            else:
+            elif generate_answer_using_random_optimize:
                 # Random生成策略
                 e_cost, sol = self.random_sample_lower_eng_cost_plan(record,
                                                                      K=K,
@@ -260,8 +286,8 @@ class DataConfig:
                         Y.append(find_one_idx[0] + 1)
                 
                 Y = np.array(Y)
-                
-            log_cummulate_eng_cost += e_cost
+            else:
+                raise NotImplementedError('Invalid Reference answer selected, choose from 0, 1, 2.')
             data_Y.append(Y)
 
             # 4.存储energy cost
@@ -269,6 +295,12 @@ class DataConfig:
 
             # 5.存储ranking
             data_local_compute_time_rank.append(local_compute_time_rank)
+
+            # 6.存储user_to_uav_infos
+            data_user_to_uav_infos.append(user_to_uav_infos.items())
+
+            # --system log: 记录系统生成数据集的总energy cost 
+            log_cummulate_eng_cost += e_cost
         
         print('[LOG]: average energy cost:', log_cummulate_eng_cost / num_of_data_points)
         self.__save_to_csv(data_Records, saving_path + '_record')
@@ -276,10 +308,11 @@ class DataConfig:
         self.__save_to_csv(data_Y, saving_path + '_solution')
         self.__save_to_csv(data_eng_cost, saving_path + '_energy_cost')
         self.__save_to_csv(data_local_compute_time_rank, saving_path + '_local_comp_time_ranking')
+        self.__save_to_csv(data_user_to_uav_infos, saving_path + '_user_to_uav_infos')
     
-    def __normalize_feature(self, F):
+    def __z_score_norm(self, F):
         """
-        z-score nrom
+        z-score norm
         """
         F = np.array(F)
 
@@ -290,9 +323,9 @@ class DataConfig:
 
         return normalized
     
-    def __divide_by_sum_nrom(self, F):
+    def __divide_by_sum_norm(self, F):
         """
-        divide by sum nrom
+        divide by sum norm
         """
         F = np.array(F)
 
@@ -346,6 +379,56 @@ class DataConfig:
         print('Saved configs:')
         for k, v in self.__dict__.items():
             print('* name: {}, value: {}, type: {}'.format(k, v, type(v)))
+        
+    def allocate_with_no_overtime_constraint(self, record, local_t_ranking, user_to_uav_infos):
+        allocation_plan = [0] * self.user_number
+        uav_workload    = [1] * self.uav_number
+        max_load        = [float('inf')] * self.uav_number 
+
+        for local_time, local_eng_cost, user_idx in local_t_ranking:
+            time_threshold = local_time
+            min_eng_cost   = local_eng_cost
+            allocate_idx   = -1
+            # 找到满足要求的UAV
+                # 1. 不超时
+                # 2. energy cost最低
+            # uav_idx 从0开始
+            for uav_idx, uav_total_eng_cost, uav_compute_t, uav_transmit_t in user_to_uav_infos[user_idx]:
+                # 首先计算带workload的计算时间
+                # 传输时间不受影响
+                U = uav_compute_t + uav_compute_t
+                uav_compute_t *= uav_workload[uav_idx]
+                process_time = uav_compute_t + uav_transmit_t
+
+                if time_threshold < process_time or uav_workload[uav_idx] - 1 >= max_load[uav_idx]:
+                    continue
+
+                if min_eng_cost > uav_total_eng_cost:
+                    # 更新信息
+                    min_eng_cost = uav_total_eng_cost
+                    allocate_idx = uav_idx + 1
+            
+            if allocate_idx != -1:
+                allocation_plan[user_idx] = allocate_idx
+                uav_workload[allocate_idx - 1] += 1
+                max_load[allocate_idx - 1] = min(max_load[allocate_idx - 1], np.floor(local_time/U))
+        
+        # 计算eng cost:
+        sol_one_zero = np.zeros(self.uav_number * self.user_number)
+        base = 0
+        for i in range(self.user_number):
+            if allocation_plan[i] == 0:
+                base += self.uav_number
+            else:
+                sol_one_zero[base + allocation_plan[i] - 1] = 1
+                base += self.uav_number
+            
+
+        _, eng_cost, __ovt = whale(record, sol_one_zero, self, need_stats=True)               # 计算greedy方法生成解的energy cost.
+        assert len(__ovt) == 0, '不应该生成包含超时用户的解法'
+        
+        return eng_cost, np.array(allocation_plan), sol_one_zero
+
     
     def allocate_by_local_time_and_uav_comp_speed(self, record, local_t_ranking):
         allocation_plan = [0] * self.user_number
@@ -357,30 +440,24 @@ class DataConfig:
         idx = 0
         
         while uav_compute_speed and idx < self.user_number:
-            _, user_idx = local_t_ranking[idx]
-            # print('user index', user_idx)
+            _, _, user_idx = local_t_ranking[idx]
 
             _, uav_idx = heapq.heappop(uav_compute_speed)
 
             temp_uav_speed = self.uav_computational_capacity[uav_idx - 1] / (uav_workload[uav_idx - 1])
-            # print('selected uav: {}, speed: {}'.format(uav_idx, temp_uav_speed))
 
             while user_compute_speed and temp_uav_speed < user_compute_speed[-1]:
-                # print('looping...')
-                # print('uav_speed: {}, user_compute_speed: {}'.format(temp_uav_speed, user_compute_speed[-1]))
                 user_compute_speed.pop()
         
             if not user_compute_speed:
                 break
             
             # allocate
-            # print('[*] user{} -> uav {}'.format(user_idx, uav_idx))
             allocation_plan[user_idx] = uav_idx
 
             # update info
             uav_workload[uav_idx - 1] += 1
             heapq.heappush(uav_compute_speed, (-self.uav_computational_capacity[uav_idx - 1] / uav_workload[uav_idx - 1], uav_idx))
-            # print('after:', uav_compute_speed)
             idx += 1
 
         # 计算eng cost:
@@ -437,7 +514,7 @@ if __name__ == '__main__':
     parser.add_argument('--penalty', type=int, help='超时惩罚')
     parser.add_argument('--number_of_train_data', type=int, help='train_data的数量')
     parser.add_argument('--number_of_test_data', type=int, help='test_data的数量')
-    parser.add_argument('--using_random_sol', action='store_true', help='是否选择random方法生成解', default=False)
+    parser.add_argument('--answer_generate_method', type=int, help='选择哪种方式生成解', default=0)
     args = parser.parse_args()
 
     # 创建对象
@@ -445,12 +522,19 @@ if __name__ == '__main__':
     number_of_uav                          = args.uavNumber
     feature_norm                           = True
     exclude_local_choice_when_generating_y = False
-    generate_sol_using_random              = args.using_random_sol
     penalty                                = args.penalty
-    if generate_sol_using_random:
-        print('[Data Generation] Using randomly generated solution')
-    else:
-        print('[Data Generation] Using greedly generated solution')
+
+    g_randomly = g_wo_ot = g_w_ot = False
+
+    if args.answer_generate_method == 0:
+        print('[Data Generation] Using generated solution with overtime constraint.')
+        g_w_ot = True
+    elif args.answer_generate_method == 1:
+        print('[Data Generation] Using greedly generated solution (without overtime constraint)')
+        g_wo_ot = True
+    elif args.answer_generate_method == 2:
+        g_randomly = True
+        print('[Data Generation] Using randomly generated solution (without overtime constraint)')
 
     # 生成数据对象
     dataObj = DataConfig(n_of_user=number_of_user,
@@ -469,7 +553,9 @@ if __name__ == '__main__':
                              data_config=dataObj,
                              require_feature_norm=feature_norm, 
                              exclude_local_options_when_generating_y=exclude_local_choice_when_generating_y,
-                             generate_answer_using_random_optimize=generate_sol_using_random)
+                             generate_answer_using_random_optimize=g_randomly,
+                             generate_answer_without_time_constraint=g_wo_ot,
+                             generate_answer_w_time_constraint=g_w_ot)
 
     dataObj.generate_dataset(num_of_data_points=args.number_of_test_data,
                              saving_path='./Dataset/TESTING_NumOfUser:{}_NumOfUAV:{}'.format(number_of_user, number_of_uav),
@@ -477,4 +563,6 @@ if __name__ == '__main__':
                              data_config=dataObj,
                              require_feature_norm=feature_norm,
                              exclude_local_options_when_generating_y=exclude_local_choice_when_generating_y,
-                             generate_answer_using_random_optimize=generate_sol_using_random)
+                             generate_answer_using_random_optimize=g_randomly,
+                             generate_answer_without_time_constraint=g_wo_ot,
+                             generate_answer_w_time_constraint=g_w_ot)

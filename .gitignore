@@ -10,3 +10,4 @@ __pycache__
 *.json
 *.pt
 *.png
+*.out

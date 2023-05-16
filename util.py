@@ -34,7 +34,7 @@ def convert_index_to_zero_one_sol(plan, data_config):
     base = 0
 
     for i in range(data_config.user_number):
-        ans_idx = plan[i]
+        ans_idx = int(plan[i])
         if ans_idx != 0:
             zero_one_sol[base + ans_idx - 1] = 1
 
@@ -46,9 +46,11 @@ def generate_better_allocate_plan_KMN(prob,
                                       K=1, 
                                       threshold_p=0.5,
                                       eng_compute_func=None,
-                                      idx=None,
+                                      record_idx=None,
                                       convert_output_size=None,
-                                      data_config=None):
+                                      data_config=None,
+                                      record=None,
+                                      PENALTY=None):
     flatten_prob = prob.view(-1, 1)
     # Try use average as threshold
     # threshold_p = float(torch.mean(flatten_prob.view(1, -1)))
@@ -108,8 +110,10 @@ def generate_better_allocate_plan_KMN(prob,
             
             if not selected:
                 new_sol_tensor.append(0)
-        
-        _, new_energy_cost = eng_compute_func(idx, new_sol)
+        if record_idx is not None: 
+            _, new_energy_cost = eng_compute_func(record_idx, new_sol)
+        else:
+            _, new_energy_cost = eng_compute_func(record, new_sol, data_config, PENALTY=PENALTY)
         # 更新answer:
         if new_energy_cost < eng_cost:
             eng_cost = new_energy_cost

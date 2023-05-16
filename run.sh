@@ -1,25 +1,24 @@
 # 生成数据集配置
-uav_number=2;
-user_number=10;
-number_of_train_data=15000;
-number_of_test_data=5000;
-overtime_penalty=100
-# 100 -> 1/4的energy cost
-# 200 -> 1/2的energy cost
+uav_number=3;                                                                # uav的数量
+user_number=10;                                                              # user的数量
+number_of_train_data=15000;                                                  # 训练数据的数量
+number_of_test_data=5000;                                                    # 测试数据数量
+overtime_penalty=1000                                                        # 数据集中，超时解的penalty
+answer_generate_method=0                                                     # 生成解的方法 （0: 带不超时constraint生成的解， 1:不带不超时constraint生成解，2:random生成解（不包含不超时constraint）。
 
 # ---------------------
 # 模型配置
-hidden_dim=512;
+hidden_dim=256;
 drop_out=0.1;
 reg_better_sol_number=15;
 __epoch_num=10;
 # train_iter=`expr $number_of_train_data \* $__train_model_every_k_step \* $__epoch_num`;
 train_iter=`expr $number_of_train_data \* $__epoch_num`;
-# train_iter=35000                                # 用于调试
+# train_iter=1000                                # 用于调试
 
 # ------------------------------------
 # 流程配置
-generate_dataset=false
+generate_dataset=true
 test_no_reg_method=false
 
 # 生成数据
@@ -31,10 +30,11 @@ then
                         --penalty $overtime_penalty \
                         --number_of_train_data $number_of_train_data \
                         --number_of_test_dat $number_of_test_data \
-                        # --using_random_sol 
+                        --answer_generate_method $answer_generate_method
 fi
+
 # -----------------------------------------------------
-# # 模型1MLP:
+# 模型1MLP:
 model_name="mlp"
 # 训练中生成更好的解
 echo "[System] Training model ${model_name}, Generate Better Solution During Training = True ..."

@@ -107,13 +107,13 @@ if __name__ == "__main__":
             eng_cost, new_y = generate_better_allocate_plan_KMN(prob,
                                                                 K=generate_better_sol_k,
                                                                 eng_compute_func=energy_cost_function,
-                                                                idx=idx,
+                                                                record_idx=idx,
                                                                 convert_output_size=cvt_output_size,
                                                                 data_config=data_config,
                                                                 threshold_p=1 / (data_config.uav_number + 1))
             # # 如果存在能耗更低的解
             if eng_cost < ENG_COST[idx]:
-                # print('Regenerate a better solution, cost', eng_cost)
+                # print('Regenerate a better solution, cost: {}, old: {}'.format(eng_cost, ENG_COST[idx]))
                 ENG_COST[idx, :] = eng_cost
                 Y[idx, :]        = torch.Tensor(new_y)
                 log_gen_better_sol_cnt += 1

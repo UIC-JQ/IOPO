@@ -24,6 +24,7 @@ def compute_local_eng_cost(task_size=None, time_threshold=None, user_compute_spe
     return compute_time_required * user_compute_power
 
 def compute_upload_eng_cost(task_size=None, 
+                            package_size=None,
                             time_threshold=None,
                             uav_compute_speed=None,
                             uav_compute_power=None,
@@ -43,7 +44,7 @@ def compute_upload_eng_cost(task_size=None,
 
     # # 传输task到机器上需要的总时间
     trans_speed = __compute_user_to_uav_trans_speed(uav_coordinate, user_coordinate, data_config)
-    transmit_time_required = task_size / trans_speed
+    transmit_time_required = package_size / trans_speed
     # 传输包到机器上需要的总能耗
     transmit_eng_cost = transmit_time_required * user_transmit_power
 
@@ -52,7 +53,7 @@ def compute_upload_eng_cost(task_size=None,
     if total_time_required > time_threshold:
         return (compute_eng_cost + transmit_eng_cost) + penalty
     
-    return compute_eng_cost + transmit_eng_cost
+    return compute_eng_cost + transmit_eng_cost, compute_time_required, transmit_time_required
 
 def __compute_user_to_uav_trans_speed(uav_coordinate, user_coordinate, data_config):
     uav_coordinate = np.array(uav_coordinate)
@@ -160,7 +161,7 @@ def __compute_user_to_uav_trans_speed(uav_coordinate, user_coordinate, data_conf
 
     return _rate()
 
-def whale(h, b, data_config, need_stats=False, optimize_phi=False, compute_local_eng_cost=False, compute_upload_eng_cost=False):
+def whale(h, b, data_config, need_stats=False, optimize_phi=False, compute_local_eng_cost=False, compute_upload_eng_cost=False, PENALTY=None):
     # for equation 1 - 3
     '''
     IRS在x-z平面
@@ -169,7 +170,10 @@ def whale(h, b, data_config, need_stats=False, optimize_phi=False, compute_local
     ,and δx=δz=5mm
     '''
     
-    penalty = data_config.overtime_penalty #j for solution violate constrain 
+    if PENALTY is None:
+        penalty = data_config.overtime_penalty #j for solution violate constrain 
+    else:
+        penalty = PENALTY
 
     c = data_config.SPEED_OF_LIGHT     #speed of the light m/s
     T = data_config.TIME_SLOT_LENGTH   #s equal to 0.125ms,time of one slot
