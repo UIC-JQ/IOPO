@@ -4,7 +4,7 @@ from tqdm import tqdm
 
 from dataclass import DataConfig
 from opt3 import whale
-from util import load_from_csv, generate_better_allocate_plan_KMN, build_dir
+from util import load_from_csv, generate_better_allocate_plan_KMN
 
 # Implementated based on the PyTorch 
 from Model_LSTM import LSTM_Model
@@ -129,8 +129,6 @@ if __name__ == "__main__":
        
         
     # 保存数据：
-    build_dir('./Saved_model')
-    build_dir('./Log')
     # 保存training_loss
     model.plot_cost(model_name + '_[REG_SOL={}]'.format(config_generate_better_sol_during_training))
     print('[Log]: Generate {} better solutions during training'.format(log_gen_better_sol_cnt))

@@ -8,18 +8,32 @@ answer_generate_method=0                                                     # �
 
 # ---------------------
 # 模型配置
-hidden_dim=256;
-drop_out=0.1;
+hidden_dim=512;
+drop_out=0.15;
 reg_better_sol_number=15;
 __epoch_num=10;
 # train_iter=`expr $number_of_train_data \* $__train_model_every_k_step \* $__epoch_num`;
 train_iter=`expr $number_of_train_data \* $__epoch_num`;
-# train_iter=1000                                # 用于调试
+# train_iter=10                                # 用于调试
 
 # ------------------------------------
 # 流程配置
-generate_dataset=true
+generate_dataset=false
 test_no_reg_method=false
+
+# 生成必要的文件夹
+if [ ! -d "./Log" ]; then
+    mkdir "./Log"
+fi
+if [ ! -d "./Dataset" ]; then
+    mkdir "./Dataset"
+fi
+if [ ! -d "./Saved_model" ]; then
+    mkdir "./Saved_model"
+fi
+if [ ! -d "./Config" ]; then
+    mkdir "./Config"
+fi
 
 # 生成数据
 if ($generate_dataset = true)
@@ -50,6 +64,7 @@ python train.py --nnModel $model_name \
 
 echo "[System] Perform Testing ..."
 python test_compare_diff_methods.py \
+                --test_NN_only \
                 --nnModel $model_name \
                 --uavNumber $uav_number \
                 --userNumber $user_number > "./Log/[TEST_LOG]_${model_name}".txt

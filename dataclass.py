@@ -5,7 +5,6 @@ import numpy as np
 import argparse
 from tqdm import tqdm
 from opt3 import whale, compute_local_eng_cost, compute_upload_eng_cost
-from util import build_dir
 import collections
 
 class NumpyEncoder(json.JSONEncoder):
@@ -425,7 +424,7 @@ class DataConfig:
             
 
         _, eng_cost, __ovt = whale(record, sol_one_zero, self, need_stats=True)               # 计算greedy方法生成解的energy cost.
-        assert len(__ovt) == 0, '不应该生成包含超时用户的解法'
+        assert len(__ovt) == 0, '不应该生成包含超时用户的解法, {}, {}'.format(allocation_plan, __ovt)
         
         return eng_cost, np.array(allocation_plan), sol_one_zero
 
@@ -542,8 +541,6 @@ if __name__ == '__main__':
                          penalty=penalty)
     
     # 保存config
-    build_dir('./Config')
-    build_dir('./Dataset')
     dataObj.save_config('./Config/CONFIG_NumOfUser:{}_NumOfUAV:{}.json'.format(number_of_user, number_of_uav))
 
     # 生成数据集:
