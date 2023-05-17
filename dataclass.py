@@ -5,6 +5,7 @@ import numpy as np
 import argparse
 from tqdm import tqdm
 from opt3 import whale, compute_local_eng_cost, compute_upload_eng_cost
+from util import convert_index_to_zero_one_sol
 import collections
 
 class NumpyEncoder(json.JSONEncoder):
@@ -381,13 +382,14 @@ class DataConfig:
         
     def allocate_with_no_overtime_constraint(self, record, local_t_ranking, user_to_uav_infos):
         allocation_plan = [0] * self.user_number
-        uav_workload    = [1] * self.uav_number
+        uav_workload    = [0] * self.uav_number
         max_load        = [float('inf')] * self.uav_number 
 
         for local_time, local_eng_cost, user_idx in local_t_ranking:
-            time_threshold = local_time
-            min_eng_cost   = local_eng_cost
-            allocate_idx   = -1
+            time_threshold             = local_time
+            min_eng_cost               = local_eng_cost
+            update_acceptable_workload = None
+            allocate_idx               = -1
             # 找到满足要求的UAV
                 # 1. 不超时
                 # 2. energy cost最低
@@ -395,33 +397,34 @@ class DataConfig:
             for uav_idx, uav_total_eng_cost, uav_compute_t, uav_transmit_t in user_to_uav_infos[user_idx]:
                 # 首先计算带workload的计算时间
                 # 传输时间不受影响
-                U = uav_compute_t + uav_compute_t
-                uav_compute_t *= uav_workload[uav_idx]
+                U = uav_compute_t + uav_transmit_t
+                # 假设一个能取到的最大的workload
+                cur_max_l = np.floor(local_time / U)
+                # 假设最大workload，和当前允许的最大workload，取较小的一个
+                # 得到，这个UAV最大的acceptable workload
+                acceptable_workload_size = min(cur_max_l, max_load[uav_idx])
+                # 计算在这个最大的acceptable workload情况下，计算时间
+                uav_compute_t *= acceptable_workload_size
                 process_time = uav_compute_t + uav_transmit_t
-
-                if time_threshold < process_time or uav_workload[uav_idx] - 1 >= max_load[uav_idx]:
+                
+                # 如果超时
+                # 或当前的workload已将超过了最大的acceptable workload
+                if time_threshold < process_time or uav_workload[uav_idx] >= acceptable_workload_size:
                     continue
 
                 if min_eng_cost > uav_total_eng_cost:
                     # 更新信息
                     min_eng_cost = uav_total_eng_cost
                     allocate_idx = uav_idx + 1
+                    update_acceptable_workload = acceptable_workload_size
             
             if allocate_idx != -1:
                 allocation_plan[user_idx] = allocate_idx
                 uav_workload[allocate_idx - 1] += 1
-                max_load[allocate_idx - 1] = min(max_load[allocate_idx - 1], np.floor(local_time/U))
+                max_load[allocate_idx - 1] = update_acceptable_workload
         
         # 计算eng cost:
-        sol_one_zero = np.zeros(self.uav_number * self.user_number)
-        base = 0
-        for i in range(self.user_number):
-            if allocation_plan[i] == 0:
-                base += self.uav_number
-            else:
-                sol_one_zero[base + allocation_plan[i] - 1] = 1
-                base += self.uav_number
-            
+        sol_one_zero = convert_index_to_zero_one_sol(allocation_plan, self)
 
         _, eng_cost, __ovt = whale(record, sol_one_zero, self, need_stats=True)               # 计算greedy方法生成解的energy cost.
         assert len(__ovt) == 0, '不应该生成包含超时用户的解法, {}, {}'.format(allocation_plan, __ovt)
