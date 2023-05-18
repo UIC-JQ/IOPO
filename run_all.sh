@@ -1,3 +1,3 @@
-nohup ./run_u10.sh &
-nohup ./run_u20.sh &
-nohup ./run_u30.sh &
+nohup ./run.sh 3 10 &
+nohup ./run.sh 3 20 &
+nohup ./run.sh 3 30 &
