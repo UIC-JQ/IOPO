@@ -54,10 +54,11 @@ if __name__ == "__main__":
 
     # ---------------------------------------------------------------------------------
     # Load training data
-    X_feature_file        = './Dataset/TRAINING_NumOfUser:{}_NumOfUAV:{}_feature.csv'.format(number_of_user, number_of_uav)
-    Y_ans_file            = './Dataset/TRAINING_NumOfUser:{}_NumOfUAV:{}_solution.csv'.format(number_of_user, number_of_uav)
-    Y_eng_cost_save_path  = './Dataset/TRAINING_NumOfUser:{}_NumOfUAV:{}_energy_cost.csv'.format(number_of_user, number_of_uav)
-    ENV_file_path         = './Dataset/TRAINING_NumOfUser:{}_NumOfUAV:{}_record.csv'.format(number_of_user, number_of_uav)
+    dataset_save_dir = "user:{}_uav:{}".format(number_of_user, number_of_uav)
+    X_feature_file        = './Dataset/{}/TRAINING_NumOfUser:{}_NumOfUAV:{}_feature.csv'.format(dataset_save_dir, number_of_user, number_of_uav)
+    Y_ans_file            = './Dataset/{}/TRAINING_NumOfUser:{}_NumOfUAV:{}_solution.csv'.format(dataset_save_dir, number_of_user, number_of_uav)
+    Y_eng_cost_save_path  = './Dataset/{}/TRAINING_NumOfUser:{}_NumOfUAV:{}_energy_cost.csv'.format(dataset_save_dir, number_of_user, number_of_uav)
+    ENV_file_path         = './Dataset/{}/TRAINING_NumOfUser:{}_NumOfUAV:{}_record.csv'.format(dataset_save_dir, number_of_user, number_of_uav)
 
     X                     = torch.Tensor(load_from_csv(file_path=X_feature_file, data_type=float))         # 读取input feature
     input_feature_size    = X.shape[-1]                                                                    # 获取input feature的维度
@@ -130,8 +131,10 @@ if __name__ == "__main__":
         
     # 保存数据：
     # 保存training_loss
-    model.plot_cost(model_name + '_[REG_SOL={}]'.format(config_generate_better_sol_during_training))
+    save_dir = './Log/user:{}_uav:{}/'.format(number_of_user, number_of_uav)
+    model.plot_cost(save_dir, model_name + '_[REG_SOL={}]'.format(config_generate_better_sol_during_training))
     print('[Log]: Generate {} better solutions during training'.format(log_gen_better_sol_cnt))
     # save model parameters:
-    model_save_path = './Saved_model/MODEL_{}_NumOfUser:{}_NumOfUAV:{}.pt'.format(model_name, number_of_user, number_of_uav)
+    save_dir = './Saved_model/user:{}_uav:{}/'.format(number_of_user, number_of_uav)
+    model_save_path = save_dir + 'MODEL_{}_NumOfUser:{}_NumOfUAV:{}.pt'.format(model_name, number_of_user, number_of_uav)
     model.save_model(model_save_path)

@@ -191,16 +191,17 @@ if __name__ == '__main__':
 
     # ---------------------------------------------------------------------------------------------------------
     # LOAD Test data:
-    path = './Dataset/TESTING_NumOfUser:{}_NumOfUAV:{}_record.csv'.format(number_of_user, number_of_uav)
+    dataset_save_dir = "user:{}_uav:{}".format(number_of_user, number_of_uav)
+    path = './Dataset/{}/TESTING_NumOfUser:{}_NumOfUAV:{}_record.csv'.format(dataset_save_dir, number_of_user, number_of_uav)
     Record = load_from_csv(path, data_type=float)
     
-    X_feature_file = './Dataset/TESTING_NumOfUser:{}_NumOfUAV:{}_feature.csv'.format(number_of_user, number_of_uav)
+    X_feature_file = './Dataset/{}/TESTING_NumOfUser:{}_NumOfUAV:{}_feature.csv'.format(dataset_save_dir, number_of_user, number_of_uav)
     feature = load_from_csv(X_feature_file, data_type=float)
 
-    local_rank_file = './Dataset/TESTING_NumOfUser:{}_NumOfUAV:{}_local_comp_time_ranking.csv'.format(number_of_user, number_of_uav)
+    local_rank_file = './Dataset/{}/TESTING_NumOfUser:{}_NumOfUAV:{}_local_comp_time_ranking.csv'.format(dataset_save_dir, number_of_user, number_of_uav)
     local_time_rankings = load_from_csv(local_rank_file)
 
-    user_uav_infos_file = './Dataset/TESTING_NumOfUser:{}_NumOfUAV:{}_user_to_uav_infos.csv'.format(number_of_user, number_of_uav)
+    user_uav_infos_file = './Dataset/{}/TESTING_NumOfUser:{}_NumOfUAV:{}_user_to_uav_infos.csv'.format(dataset_save_dir, number_of_user, number_of_uav)
     user_uav_infos = load_from_csv(user_uav_infos_file)
 
     # ---------------------------------------------------------------------------------------------------------
@@ -219,7 +220,9 @@ if __name__ == '__main__':
         print('Loading model LSTM w/ Attention')
         model = Model_LSTM_IMP
 
-    model = model.load_model('./Saved_model/MODEL_{}_NumOfUser:{}_NumOfUAV:{}.pt'.format(model_name, number_of_user, number_of_uav))
+    save_dir = './Saved_model/user:{}_uav:{}/'.format(number_of_user, number_of_uav)
+    model_save_path = save_dir + 'MODEL_{}_NumOfUser:{}_NumOfUAV:{}.pt'.format(model_name, number_of_user, number_of_uav)
+    model = model.load_model(model_save_path)
 
     # ---------------------------------------------------------------------------------------------------------
     # 开始测试不同方法

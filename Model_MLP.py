@@ -172,9 +172,9 @@ class MLP(nn.Module):
 
         return predict_prob, ans
 
-    def plot_cost(self, model_name):
+    def plot_cost(self, save_dir, model_name):
         import matplotlib.pyplot as plt
         plt.plot(np.arange(len(self.cost_his))*self.training_interval, self.cost_his)
         plt.ylabel('Training Loss')
         plt.xlabel('Time Frames')
-        plt.savefig('./Log/model:{}_train_loss.png'.format(model_name))
+        plt.savefig(save_dir + 'model:{}_train_loss.png'.format(model_name))

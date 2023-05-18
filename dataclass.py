@@ -547,8 +547,9 @@ if __name__ == '__main__':
     dataObj.save_config('./Config/CONFIG_NumOfUser:{}_NumOfUAV:{}.json'.format(number_of_user, number_of_uav))
 
     # 生成数据集:
+    dataset_save_dir = "user:{}_uav:{}".format(number_of_user, number_of_uav)
     dataObj.generate_dataset(num_of_data_points=args.number_of_train_data,
-                             saving_path='./Dataset/TRAINING_NumOfUser:{}_NumOfUAV:{}'.format(number_of_user, number_of_uav),
+                             saving_path='./Dataset/{}/TRAINING_NumOfUser:{}_NumOfUAV:{}'.format(dataset_save_dir,number_of_user, number_of_uav),
                              K=30,
                              data_config=dataObj,
                              require_feature_norm=feature_norm, 
@@ -558,7 +559,7 @@ if __name__ == '__main__':
                              generate_answer_w_time_constraint=g_w_ot)
 
     dataObj.generate_dataset(num_of_data_points=args.number_of_test_data,
-                             saving_path='./Dataset/TESTING_NumOfUser:{}_NumOfUAV:{}'.format(number_of_user, number_of_uav),
+                             saving_path='./Dataset/{}/TESTING_NumOfUser:{}_NumOfUAV:{}'.format(dataset_save_dir, number_of_user, number_of_uav),
                              K=1,
                              data_config=dataObj,
                              require_feature_norm=feature_norm,
