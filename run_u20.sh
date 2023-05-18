@@ -1,20 +1,19 @@
 # 生成数据集配置
 uav_number=3;                                                                # uav的数量
 user_number=20;                                                              # user的数量
-number_of_train_data=10;                                                     # 训练数据的数量
-number_of_test_data=5;                                                       # 测试数据数量
+number_of_train_data=15000;                                                     # 训练数据的数量
+number_of_test_data=5000;                                                       # 测试数据数量
 overtime_penalty=1000                                                        # 数据集中，超时解的penalty
 answer_generate_method=0                                                     # 生成解的方法 （0: 带不超时constraint生成的解， 1:不带不超时constraint生成解，2:random生成解（不包含不超时constraint）。
 
 # ---------------------
 # 模型配置
-hidden_dim=512;
+hidden_dim=256;
 drop_out=0.15;
-reg_better_sol_number=15;
+reg_better_sol_number=20;
 __epoch_num=10;
 # train_iter=`expr $number_of_train_data \* $__train_model_every_k_step \* $__epoch_num`;
 train_iter=`expr $number_of_train_data \* $__epoch_num`;
-train_iter=10
 
 # ------------------------------------
 # 流程配置
