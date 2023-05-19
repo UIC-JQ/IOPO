@@ -68,7 +68,7 @@ def allocate_plan_NN_model(record, data_config: DataConfig, **kws):
     model = kws['model']
     data_idx = kws['data_idx']
     X = kws['input_feature'][data_idx,:]
-    _, __allocate_plan = model.generate_answer(X, data_config)
+    _, _, __allocate_plan = model.generate_answer(X, data_config)
 
     if kws['print_plan']:
         print_plan(__allocate_plan, data_config)
@@ -80,13 +80,15 @@ def allocate_plan_NN_model_optimize(record, data_config: DataConfig, **kws):
     data_idx = kws['data_idx']
     X = kws['input_feature'][data_idx,:]
     KMN_K = kws['KMN_K']
-    prob, __allocate_plan = model.generate_answer(X, data_config)
+    prob, ans, __allocate_plan = model.generate_answer(X, data_config)
 
     # 计算当前 NN预测的 allocation 的 energy cost
     _, eng_cost = whale(record, __allocate_plan, data_config, PENALTY=kws['OVT_PENALTY'])
 
     # 尝试生成更好的解
-    opt_eng_cost, new_y = generate_better_allocate_plan_KMN(prob,
+    opt_eng_cost, new_y = generate_better_allocate_plan_KMN(ans,
+                                                            __allocate_plan,
+                                                            prob,
                                                             K=KMN_K,
                                                             eng_compute_func=whale,
                                                             record=record,
@@ -271,11 +273,7 @@ if __name__ == '__main__':
     print('-' * 50)
     # random (without time constraint), randomly select from upload choices only
     try_method(Record, compare_method(allocate_plan_all_upload_random, OVERTIME_PENALTY), 'ALL UPLOAD OPTIMIZED RANDOM (K=1)', K=1, print_plan=False)
-    try_method(Record, compare_method(allocate_plan_all_upload_random, OVERTIME_PENALTY), 'ALL UPLOAD OPTIMIZED RANDOM (K=5)', K=5, print_plan=False)
-    try_method(Record, compare_method(allocate_plan_all_upload_random, OVERTIME_PENALTY), 'ALL UPLOAD OPTIMIZED RANDOM (K=10)', K=10, print_plan=False)
 
     print('-' * 50)
     # random (without time constraint), randomly select from upload + local choices
     try_method(Record, compare_method(allocate_plan_local_and_upload_random, OVERTIME_PENALTY), '(LOCAL + UPLOAD) OPTIMIZED RANDOM (K=1)', K=1, print_plan=False)
-    try_method(Record, compare_method(allocate_plan_local_and_upload_random, OVERTIME_PENALTY), '(LOCAL + UPLOAD) OPTIMIZED RANDOM (K=5)', K=5, print_plan=False)
-    try_method(Record, compare_method(allocate_plan_local_and_upload_random, OVERTIME_PENALTY), '(LOCAL + UPLOAD) OPTIMIZED RANDOM (K=10)', K=10, print_plan=False)

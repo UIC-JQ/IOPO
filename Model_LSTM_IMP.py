@@ -239,7 +239,7 @@ class Model_LSTM_IMP(nn.Module):
                 if choice_id == 0: continue
                 workload_factor[user_idx][choice_id - 1] += 1
 
-        return torch.vstack(probs), self.convert_answer_index_to_zero_one_answer_vector(ans, data_config)
+        return torch.vstack(probs), ans, self.convert_answer_index_to_zero_one_answer_vector(ans, data_config)
     
     def convert_answer_index_to_zero_one_answer_vector(self, ans_idxs, data_config):
         answer_vector = np.zeros(self.convert_output_size)

@@ -143,7 +143,7 @@ class MLP(nn.Module):
 
         answer = self.convert_answer_index_to_zero_one_answer_vector(ans_idx, data_config)
         
-        return prob, answer
+        return prob, ans_idx, answer
     
     def convert_answer_index_to_zero_one_answer_vector(self, ans_idxs, data_config):
         answer_vector = np.zeros(self.convert_output_size)

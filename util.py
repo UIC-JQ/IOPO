@@ -39,7 +39,9 @@ def convert_index_to_zero_one_sol(plan, data_config):
     
     return zero_one_sol
 
-def generate_better_allocate_plan_KMN(prob,
+def generate_better_allocate_plan_KMN(nn_ans,
+                                      nn_zero_one_ans,
+                                      prob,
                                       K=1, 
                                       threshold_p=0.5,
                                       eng_compute_func=None,
@@ -60,10 +62,15 @@ def generate_better_allocate_plan_KMN(prob,
     _, idx_list = torch.sort(nn.functional.pairwise_distance(threshold_0, flatten_prob, p=2))
 
     # 记录最好的answer
-    eng_cost, final_allocation_plan = float('inf'), None
+    if record_idx is not None: 
+        _, eng_cost = eng_compute_func(record_idx, nn_zero_one_ans)
+    else:
+        _, eng_cost = eng_compute_func(record, nn_zero_one_ans, data_config, PENALTY=PENALTY)
+    
+    final_allocation_plan = nn_ans
 
     # 生成K个新解
-    for i in range(K):
+    for i in range(K-1):
         new_sol = np.zeros(convert_output_size)
         new_sol_tensor = []
 

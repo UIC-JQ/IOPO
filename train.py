@@ -99,13 +99,16 @@ if __name__ == "__main__":
     # start training
     if config_generate_better_sol_during_training:
         print('[config] Generate better solution during training.')
+        print('[config] generate solution K is set to {}'.format(generate_better_sol_k))
 
         for i in tqdm(range(number_of_iter)):
             idx = i % Num_of_training_pairs
             input_feature = X[idx]
 
-            prob, ans = model.generate_answer(input_feature, data_config)
-            eng_cost, new_y = generate_better_allocate_plan_KMN(prob,
+            prob, ans, zero_one_ans = model.generate_answer(input_feature, data_config)
+            eng_cost, new_y = generate_better_allocate_plan_KMN(ans,
+                                                                zero_one_ans,
+                                                                prob,
                                                                 K=generate_better_sol_k,
                                                                 eng_compute_func=energy_cost_function,
                                                                 record_idx=idx,
