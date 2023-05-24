@@ -79,23 +79,29 @@ class Model_LSTM_IMP(nn.Module):
     def _build_model(self):
         self.feature_encoder = nn.Sequential(
             nn.Linear(self.choice_len, self.hidden_feature_size),
-            nn.ReLU(),
+            nn.Tanh(),
             nn.Dropout(self.dropout_rate),
             nn.Linear(self.hidden_feature_size, self.hidden_feature_size),
-            nn.Tanh()
+            nn.Tanh(),
+            nn.Dropout(self.dropout_rate),
+            nn.Linear(self.hidden_feature_size, self.hidden_feature_size),
+            nn.Tanh(),
         )
 
         self.workload_encoder = nn.Sequential(
             nn.Linear(self.data_config.uav_number, self.hidden_feature_size),
-            nn.ReLU(),
+            nn.Tanh(),
             nn.Dropout(self.dropout_rate),
             nn.Linear(self.hidden_feature_size, self.hidden_feature_size),
-            nn.Tanh()
+            nn.Tanh(),
+            nn.Dropout(self.dropout_rate),
+            nn.Linear(self.hidden_feature_size, self.hidden_feature_size),
+            nn.Tanh(),
         )
 
         self.combine_workload_and_enc_nn = nn.Sequential(
             nn.Linear(self.hidden_feature_size * 2, self.hidden_feature_size * 2),
-            nn.ReLU(),
+            nn.Tanh(),
             nn.Dropout(self.dropout_rate),
             nn.Linear(self.hidden_feature_size * 2, self.hidden_feature_size),
             nn.Tanh()
@@ -108,10 +114,10 @@ class Model_LSTM_IMP(nn.Module):
 
         self.final_linear_layer = nn.Sequential(
             nn.Linear(self.hidden_feature_size * 3, self.hidden_feature_size * 2),
-            nn.ReLU(),
-            nn.Dropout(self.dropout_rate),
-            nn.Linear(self.hidden_feature_size * 2, self.choice_len),
-            nn.Tanh()
+            nn.Tanh(),
+            nn.Linear(self.hidden_feature_size * 2, self.hidden_feature_size),
+            nn.Tanh(),
+            nn.Linear(self.hidden_feature_size, self.choice_len),
         )
 
     def _build_opt_tools(self):
@@ -164,19 +170,19 @@ class Model_LSTM_IMP(nn.Module):
             it_x = enc_hiddens[:, i]
             it_y = y[:, i]
             # 处理无人机的overload信息
-            x_uav_capacity_features = torch.div(x_uav_capacity_features, workload_factor)
-            f_uav_workload          = self.workload_encoder(x_uav_capacity_features)
+            f_uav_workload = torch.div(x_uav_capacity_features, workload_factor)
+            f_uav_workload          = self.workload_encoder(f_uav_workload)
 
             h = self.combine_workload_and_enc_nn(torch.cat([it_x, f_uav_workload], dim=1))
 
-            # 开始输入模型
+            # 输入LSTM模型
             dec_h, dec_c = self.decoder(h, (dec_h, dec_c))
 
             # 计算Attention:
             ci = self.Atten(torch.cat([f_uav_workload, dec_h], dim=1), enc_hiddens)
 
+            # concatenate 在一起
             output = self.final_linear_layer(torch.cat([dec_h, f_uav_workload, ci], dim=1))
-
             # 计算loss
             predict = nn.functional.log_softmax(output, dim=1)
             loss += self.criterion(predict, it_y.long())
@@ -213,8 +219,8 @@ class Model_LSTM_IMP(nn.Module):
             # 第i列的x, 以及answer:
             it_x = enc_hiddens[:, i]
             # 处理无人机的overload信息
-            x_uav_capacity_features = torch.div(x_uav_capacity_features, workload_factor)
-            f_uav_workload          = self.workload_encoder(x_uav_capacity_features)
+            f_uav_workload = torch.div(x_uav_capacity_features, workload_factor)
+            f_uav_workload = self.workload_encoder(f_uav_workload)
 
             h = self.combine_workload_and_enc_nn(torch.cat([it_x, f_uav_workload], dim=1))
 
@@ -232,12 +238,12 @@ class Model_LSTM_IMP(nn.Module):
 
             # 计算解的index
             output_index = torch.argmax(prob, dim=1)
+            output_index = int(output_index)
 
             # 更新无人机的overload信息
-            for user_idx, choice_id in enumerate(output_index):
-                ans.append(choice_id)
-                if choice_id == 0: continue
-                workload_factor[user_idx][choice_id - 1] += 1
+            ans.append(output_index)
+            if output_index != 0:
+                workload_factor[0][output_index - 1] += 1
 
         return torch.vstack(probs), ans, self.convert_answer_index_to_zero_one_answer_vector(ans, data_config)
     

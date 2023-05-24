@@ -1,7 +1,7 @@
 # 生成数据集配置
 uav_number=$1;                                                               # uav的数量
 user_number=$2;                                                              # user的数量
-number_of_train_data=3000;                                                   # 训练数据的数量
+number_of_train_data=2000;                                                   # 训练数据的数量
 number_of_test_data=300;                                                     # 测试数据数量
 overtime_penalty=1000                                                        # 数据集中，超时解的penalty
 answer_generate_method=0                                                     # 生成解的方法 （0: 带不超时constraint生成的解， 1:不带不超时constraint生成解，2:random生成解（不包含不超时constraint）。
@@ -11,12 +11,8 @@ answer_generate_method=0                                                     # �
 hidden_dim=256;
 mlp_drop_out=0.1;
 lstm_drop_out=0.1;
-# reg_better_sol_number=20;
-reg_better_sol_number=`expr $uav_number \* $user_number`;
-__epoch_num=10;
-# train_iter=`expr $number_of_train_data \* $__train_model_every_k_step \* $__epoch_num`;
-# train_iter=`expr $number_of_train_data \* $__epoch_num`;
-train_iter=20000;
+reg_better_sol_number=20;
+train_iter=100;
 
 # ------------------------------------
 # 流程配置
@@ -110,7 +106,7 @@ then
                     --userNumber $user_number > "${store_log_dir}/[TEST_LOG]_${model_name}_without_reg_better_solution".txt
 fi
 
-# -----------------------------------------------------
+# # -----------------------------------------------------
 # 模型2LSTM:
 model_name="LSTM"
 # 训练中生成更好的解

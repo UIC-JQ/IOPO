@@ -2,7 +2,7 @@ import torch
 import torch.optim as optim
 import torch.nn as nn
 import numpy as np
-
+import csv
 
 class LSTM_Model(nn.Module):
     def __init__(
@@ -55,18 +55,24 @@ class LSTM_Model(nn.Module):
     def _build_model(self):
         self.encoder = nn.Sequential(
             nn.Linear(self.each_person_feature_size, self.hidden_feature_size),
-            nn.ReLU(),
+            nn.Tanh(),
             nn.Dropout(self.dropout_rate),
             nn.Linear(self.hidden_feature_size, self.hidden_feature_size),
-            nn.Tanh()
+            nn.Tanh(),
+            nn.Dropout(self.dropout_rate),
+            nn.Linear(self.hidden_feature_size, self.hidden_feature_size),
+            nn.Tanh(),
         )
 
         self.uav_overload_enc = nn.Sequential(
             nn.Linear(self.data_config.uav_number, self.hidden_feature_size),
-            nn.ReLU(),
+            nn.Tanh(),
             nn.Dropout(self.dropout_rate),
             nn.Linear(self.hidden_feature_size, self.hidden_feature_size),
-            nn.Tanh()
+            nn.Tanh(),
+            nn.Dropout(self.dropout_rate),
+            nn.Linear(self.hidden_feature_size, self.hidden_feature_size),
+            nn.Tanh(),
         )
 
         self.decoder = nn.LSTMCell(input_size=self.hidden_feature_size,
@@ -125,13 +131,12 @@ class LSTM_Model(nn.Module):
             it_x = x_each_person_features[:, i]
             it_y = y[:, i]
             # 处理无人机的overload信息
-            x_uav_capacity_features = torch.div(x_uav_capacity_features, overload_factor)
+            f_uav_workload = torch.div(x_uav_capacity_features, overload_factor)
+            x_uavs = self.uav_overload_enc(f_uav_workload)
 
             # 开始输入Decoder
             dec_h, dec_c = self.decoder(it_x, (dec_h, dec_c))
 
-            # encode 无人机workload信息
-            x_uavs = self.uav_overload_enc(x_uav_capacity_features)
             # concatenate在一起
             output = torch.cat([dec_h, x_uavs], dim=1)
             output = self.final_linear_layer(output)
@@ -170,11 +175,11 @@ class LSTM_Model(nn.Module):
         for i in range(data_config.user_number):
             # 拿到feature:
             it_x = x_each_person_features[:, i]
-            x_uav_capacity_features = torch.div(x_uav_capacity_features, overload_factor)
+            f_uav_workload = torch.div(x_uav_capacity_features, overload_factor)
+            x_uavs = self.uav_overload_enc(f_uav_workload)
 
             dec_h, dec_c = self.decoder(it_x, (dec_h, dec_c))
 
-            x_uavs = self.uav_overload_enc(x_uav_capacity_features)
             output = torch.cat([dec_h, x_uavs], dim=1)
             # formula: output = W([output; overload_info]) + b
             output = self.final_linear_layer(output)
@@ -183,11 +188,12 @@ class LSTM_Model(nn.Module):
             probs.append(prob)
 
             output_index = torch.argmax(prob, dim=1)
+            output_index = int(output_index)
 
-            for user_idx, choice_id in enumerate(output_index):
-                ans.append(choice_id)
-                if choice_id == 0: continue
-                overload_factor[user_idx][choice_id - 1] += 1
+            # 更新无人机的overload信息
+            ans.append(output_index)
+            if output_index != 0:
+                overload_factor[0][output_index - 1] += 1
             
         return torch.vstack(probs), ans, self.convert_answer_index_to_zero_one_answer_vector(ans, data_config)
     
@@ -216,3 +222,8 @@ class LSTM_Model(nn.Module):
         plt.ylabel('Training Loss')
         plt.xlabel('Time Frames')
         plt.savefig(save_dir + 'model:{}_train_loss.png'.format(model_name))
+
+    def save_loss(self, path):
+        with open(path + '.csv', mode='w+', newline='') as f:
+            writer = csv.writer(f)
+            writer.writerow(self.cost_his)

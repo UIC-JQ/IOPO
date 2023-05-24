@@ -272,8 +272,8 @@ if __name__ == '__main__':
 
     print('-' * 50)
     # random (without time constraint), randomly select from upload choices only
-    try_method(Record, compare_method(allocate_plan_all_upload_random, OVERTIME_PENALTY), 'ALL UPLOAD OPTIMIZED RANDOM (K=1)', K=1, print_plan=False)
+    # try_method(Record, compare_method(allocate_plan_all_upload_random, OVERTIME_PENALTY), 'ALL UPLOAD OPTIMIZED RANDOM (K=1)', K=1, print_plan=False)
 
     print('-' * 50)
     # random (without time constraint), randomly select from upload + local choices
-    try_method(Record, compare_method(allocate_plan_local_and_upload_random, OVERTIME_PENALTY), '(LOCAL + UPLOAD) OPTIMIZED RANDOM (K=1)', K=1, print_plan=False)
+    # try_method(Record, compare_method(allocate_plan_local_and_upload_random, OVERTIME_PENALTY), '(LOCAL + UPLOAD) OPTIMIZED RANDOM (K=1)', K=1, print_plan=False)
