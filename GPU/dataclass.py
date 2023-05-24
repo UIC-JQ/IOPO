@@ -72,9 +72,12 @@ class DataConfig:
         # self.uav_computational_capacity = [np.random.randint(self.__UAV_COMP_CAP_LOWER_B, self.__UAV_COMP_CAP_HIGHER_B)
         #                                         for _ in range(self.uav_number)]
         # 5/12: 使用固定的无人机计算速度
-        self.uav_computational_capacity = [
-            25000, 30000, 40000
-        ]
+        __uav_speed = {
+            3: [25000, 30000, 35000],
+            4: [25000, 30000, 35000, 40000],
+            5: [25000, 30000, 35000, 40000, 45000],
+        }
+        self.uav_computational_capacity = __uav_speed[self.uav_number]
         # 2.无人机功率 j/slot
         __UAV_POWER_LOW_B            = 0.015           
         __UAV_POWER_HIGH_B           = 0.045           
@@ -395,9 +398,7 @@ class DataConfig:
                 # 2. energy cost最低
             # uav_idx 从0开始
             for uav_idx, uav_total_eng_cost, uav_compute_t, uav_transmit_t in user_to_uav_infos[user_idx]:
-                # 首先计算带workload的计算时间
-                # 传输时间不受影响
-                U = uav_compute_t + uav_transmit_t
+                U = uav_compute_t * 2
                 # 假设一个能取到的最大的workload
                 cur_max_l = np.floor(local_time / U)
                 # 假设最大workload，和当前允许的最大workload，取较小的一个
