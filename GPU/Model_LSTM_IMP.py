@@ -87,10 +87,16 @@ class Model_LSTM_IMP(nn.Module):
             nn.Dropout(self.dropout_rate),
             nn.Linear(self.hidden_feature_size, self.hidden_feature_size),
             nn.Tanh(),
+            nn.Dropout(self.dropout_rate),
+            nn.Linear(self.hidden_feature_size, self.hidden_feature_size),
+            nn.Tanh(),
         )
 
         self.workload_encoder = nn.Sequential(
             nn.Linear(self.data_config.uav_number, self.hidden_feature_size),
+            nn.Tanh(),
+            nn.Dropout(self.dropout_rate),
+            nn.Linear(self.hidden_feature_size, self.hidden_feature_size),
             nn.Tanh(),
             nn.Dropout(self.dropout_rate),
             nn.Linear(self.hidden_feature_size, self.hidden_feature_size),
@@ -105,7 +111,10 @@ class Model_LSTM_IMP(nn.Module):
             nn.Tanh(),
             nn.Dropout(self.dropout_rate),
             nn.Linear(self.hidden_feature_size * 2, self.hidden_feature_size),
-            nn.Tanh()
+            nn.Tanh(),
+            nn.Dropout(self.dropout_rate),
+            nn.Linear(self.hidden_feature_size, self.hidden_feature_size),
+            nn.Tanh(),
         )
 
         self.decoder = nn.LSTMCell(input_size=self.hidden_feature_size,
@@ -172,7 +181,7 @@ class Model_LSTM_IMP(nn.Module):
             it_y = y[:, i]
             # 处理无人机的overload信息
             f_uav_workload = torch.div(x_uav_capacity_features, workload_factor)
-            f_uav_workload          = self.workload_encoder(f_uav_workload)
+            f_uav_workload = self.workload_encoder(f_uav_workload)
 
             h = self.combine_workload_and_enc_nn(torch.cat([it_x, f_uav_workload], dim=1))
 

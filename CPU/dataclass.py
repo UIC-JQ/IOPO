@@ -397,8 +397,8 @@ class DataConfig:
             for uav_idx, uav_total_eng_cost, uav_compute_t, uav_transmit_t in user_to_uav_infos[user_idx]:
                 # 首先计算带workload的计算时间
                 # 传输时间不受影响
-                U = uav_compute_t + uav_transmit_t
-                # U = uav_compute_t * 2
+                # U = uav_compute_t + uav_transmit_t
+                U = uav_compute_t * 2
                 # 假设一个能取到的最大的workload
                 cur_max_l = np.floor(local_time / U)
                 # 假设最大workload，和当前允许的最大workload，取较小的一个

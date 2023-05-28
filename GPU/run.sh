@@ -8,15 +8,20 @@ answer_generate_method=0                                                     # �
 
 # ---------------------
 # 模型配置
+# 不怎么变动的配置
+batch_size=256;
 hidden_dim=256;
 mlp_drop_out=0.1;
 lstm_drop_out=0.1;
 reg_better_sol_number=20;
+# 修改
+# training_int=$3;
+training_int=10;
+mem_size=`expr $batch_size \* 1.5`;
 train_iter=200000;
-
 # ------------------------------------
 # 流程配置
-generate_dataset=true
+generate_dataset=false
 test_no_reg_method=false
 
 # -----------------------------------------------------
@@ -73,18 +78,22 @@ echo "[System] Training model ${model_name}, Generate Better Solution During Tra
 python train.py --nnModel $model_name \
                 --uavNumber $uav_number \
                 --userNumber $user_number \
-                --batch_size 256 \
+                --batch_size $batch_size \
                 --hidden_dim $hidden_dim \
                 --num_of_iter $train_iter \
                 --drop_out $mlp_drop_out \
                 --reg_better_sol_k $reg_better_sol_number \
-                --reg_better_sol > "${store_log_dir}/[TRAIN_LOG]_${model_name}_train_log".txt
+                --training_interval $training_int \
+                --model_memory_size $mem_size \
+                --reg_better_sol > "${store_log_dir}/[TRAIN_LOG]_${model_name}_train_log_TI${training_int}_MM${mem_size}".txt
 
 echo "[System] Perform Testing ..."
 python test_compare_diff_methods.py \
                 --nnModel $model_name \
                 --uavNumber $uav_number \
-                --userNumber $user_number > "${store_log_dir}/[TEST_LOG]_${model_name}".txt
+                --training_interval $training_int \
+                --model_memory_size $mem_size \
+                --userNumber $user_number > "${store_log_dir}/[TEST_LOG]_${model_name}_TI${training_int}_MM${mem_size}".txt
 
 if ($test_no_reg_method = true)
 then
@@ -93,9 +102,11 @@ then
     python train.py --nnModel $model_name \
                     --uavNumber $uav_number \
                     --userNumber $user_number \
-                    --batch_size 256 \
+                    --batch_size $batch_size \
                     --hidden_dim $hidden_dim \
                     --num_of_iter $train_iter \
+                    --training_interval $training_int \
+                    --model_memory_size $mem_size \
                     --drop_out $mlp_drop_out > "${store_log_dir}/[TRAIN_LOG]_${model_name}_without_reg_better_solution_train_log".txt
 
     echo "[System] Perform Testing ..."
@@ -103,6 +114,8 @@ then
                     --test_NN_only \
                     --nnModel $model_name \
                     --uavNumber $uav_number \
+                    --training_interval $training_int \
+                    --model_memory_size $mem_size \
                     --userNumber $user_number > "${store_log_dir}/[TEST_LOG]_${model_name}_without_reg_better_solution".txt
 fi
 
@@ -114,7 +127,7 @@ fi
 # python train.py --nnModel $model_name \
 #                 --uavNumber $uav_number \
 #                 --userNumber $user_number \
-#                 --batch_size 256 \
+#                 --batch_size $batch_size \
 #                 --hidden_dim $hidden_dim \
 #                 --num_of_iter $train_iter \
 #                 --drop_out $lstm_drop_out \
@@ -135,7 +148,7 @@ fi
 #     python train.py --nnModel $model_name \
 #                     --uavNumber $uav_number \
 #                     --userNumber $user_number \
-#                     --batch_size 256 \
+#                     --batch_size $batch_size \
 #                     --hidden_dim $hidden_dim \
 #                     --num_of_iter $train_iter \
 #                     --drop_out $lstm_drop_out > "${store_log_dir}/[TRAIN_LOG]_${model_name}_without_reg_better_solution_train_log".txt
@@ -156,7 +169,7 @@ fi
 # python train.py --nnModel $model_name \
 #                 --uavNumber $uav_number \
 #                 --userNumber $user_number \
-#                 --batch_size 256 \
+#                 --batch_size $batch_size \
 #                 --hidden_dim $hidden_dim \
 #                 --num_of_iter $train_iter \
 #                 --drop_out $lstm_drop_out \
@@ -177,7 +190,7 @@ fi
 #     python train.py --nnModel $model_name \
 #                     --uavNumber $uav_number \
 #                     --userNumber $user_number \
-#                     --batch_size 256 \
+#                     --batch_size $batch_size \
 #                     --hidden_dim $hidden_dim \
 #                     --num_of_iter $train_iter \
 #                     --drop_out $lstm_drop_out > "${store_log_dir}/[TRAIN_LOG]_${model_name}_without_reg_better_solution_train_log".txt

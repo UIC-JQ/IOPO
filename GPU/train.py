@@ -32,6 +32,8 @@ if __name__ == "__main__":
     parser.add_argument('--reg_better_sol_k', type=int, help='训练过程中，重新生成更优解的搜索轮次', default=20)
     parser.add_argument('--drop_out', type=float, help='drop out概率', default=0.3)
     parser.add_argument('--reg_better_sol', action='store_true', help='生成更好的解', default=False)
+    parser.add_argument('--training_interval', type=int, help='training interval大小', default=None)
+    parser.add_argument('--model_memory_size', type=int, help='memory大小', default=None)
     args = parser.parse_args()
 
     # 创建数据配置
@@ -43,11 +45,11 @@ if __name__ == "__main__":
     # 训练NN配置
     number_of_iter                = args.num_of_iter                                       # number of time frames
     batch_size                    = args.batch_size 
-    train_per_step                = 10                                                     # 每添加相应个数据后，训练网络一次
+    train_per_step                = args.training_interval                                 # 每添加相应个数据后，训练网络一次
     input_feature_size            = None                                                   # dim of training sample
     output_y_size                 = number_of_user * (number_of_uav + 1)                   # 神经网络输出dim, number_of_uav + 1 是因为 [0, 1, 2, 3], 0表示本地，1-3为无人机编号, +1是为了多出来的0
     cvt_output_size               = number_of_user * number_of_uav                         # 用于生成答案数组 (由0，1)构成
-    Memory                        = int(batch_size * 1.5)                                  # 设置Memory size大小
+    Memory                        = args.model_memory_size                                 # 设置Memory size大小
     generate_better_sol_k         = args.reg_better_sol_k
     config_generate_better_sol_during_training = args.reg_better_sol
     assert generate_better_sol_k <= cvt_output_size
@@ -55,7 +57,7 @@ if __name__ == "__main__":
 
     # ---------------------------------------------------------------------------------
     # Load training data
-    dataset_save_dir = "user:{}_uav:{}".format(number_of_user, number_of_uav)
+    dataset_save_dir      = "user:{}_uav:{}".format(number_of_user, number_of_uav)
     X_feature_file        = './Dataset/{}/TRAINING_NumOfUser:{}_NumOfUAV:{}_feature.csv'.format(dataset_save_dir, number_of_user, number_of_uav)
     Y_ans_file            = './Dataset/{}/TRAINING_NumOfUser:{}_NumOfUAV:{}_solution.csv'.format(dataset_save_dir, number_of_user, number_of_uav)
     Y_eng_cost_save_path  = './Dataset/{}/TRAINING_NumOfUser:{}_NumOfUAV:{}_energy_cost.csv'.format(dataset_save_dir, number_of_user, number_of_uav)
@@ -106,6 +108,8 @@ if __name__ == "__main__":
     if config_generate_better_sol_during_training:
         print('[config] Generate better solution during training.')
         print('[config] generate solution K is set to {}'.format(generate_better_sol_k))
+        print('[config] Training Interval set to {}'.format(train_per_step))
+        print('[config] Memory Size set to {}'.format(Memory))
         LOG_KNM_updated_idx = set()
         LOG_ENG_COST_BEFORE_TRAIN = torch.mean(ENG_COST)
         LOG_ENG_COST_DURING_TRAINING = []
@@ -144,10 +148,10 @@ if __name__ == "__main__":
         # 保存数据：
         # 保存loss图
         save_dir = './Log/user:{}_uav:{}/'.format(number_of_user, number_of_uav)
-        model.plot_cost(save_dir, model_name + '_[REG_SOL={}]'.format(config_generate_better_sol_during_training))
+        model.plot_cost(save_dir, model_name + '_[REG_SOL={}]_TI:{}_MemS:{}'.format(config_generate_better_sol_during_training, train_per_step, Memory))
 
         # 保存training_loss
-        model_loss_hist_path = save_dir + 'TrainingLoss_MODEL_{}_NumOfUser:{}_NumOf_UAV:{}'.format(model_name, number_of_user, number_of_uav)
+        model_loss_hist_path = save_dir + 'TrainingLoss_MODEL_{}_TI:{}_MemS:{}'.format(model_name, train_per_step, Memory)
         model.save_loss(model_loss_hist_path)
 
         # 保存eng cost的变化
@@ -165,5 +169,5 @@ if __name__ == "__main__":
     # 保存数据：
     # save model parameters:
     save_dir = './Saved_model/user:{}_uav:{}/'.format(number_of_user, number_of_uav)
-    model_save_path = save_dir + 'MODEL_{}_NumOfUser:{}_NumOfUAV:{}.pt'.format(model_name, number_of_user, number_of_uav)
+    model_save_path = save_dir + 'MODEL_{}_NumOfUser:{}_NumOfUAV:{}_TI:{}_ME:{}.pt'.format(model_name, number_of_user, number_of_uav, train_per_step, Memory)
     model.save_model(model_save_path)

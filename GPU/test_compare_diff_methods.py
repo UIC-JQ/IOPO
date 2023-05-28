@@ -179,6 +179,8 @@ if __name__ == '__main__':
     parser.add_argument('--nnModel', type=str, help='使用哪一个NN模型, choose from {MLP, LSTM, LSTM_ATT}')
     parser.add_argument('--uavNumber', type=int, help='uav的数量')
     parser.add_argument('--userNumber', type=int, help='user的数量')
+    parser.add_argument('--training_interval', type=int, help='training interval的大小')
+    parser.add_argument('--model_memory_size', type=int, help='memory大小', default=None)
     parser.add_argument('--test_NN_only', action='store_true', help='user的数量', default=False)
     args = parser.parse_args()
 
@@ -189,6 +191,8 @@ if __name__ == '__main__':
     data_config = DataConfig(load_config_from_path='./Config/CONFIG_' + inner_path + '.json')
     data_config.overtime_penalty = 0                        # 显示energy cost的时候，去掉overtime penalty.
     OVERTIME_PENALTY = 100
+    Memory = args.model_memory_size
+    train_per_step = args.training_interval
     KNM_K = data_config.uav_number * data_config.user_number
     print('[Test Config] OVERTIME PENALTY is set to >>>100<<<')
 
@@ -224,7 +228,7 @@ if __name__ == '__main__':
         model = Model_LSTM_IMP
 
     save_dir = './Saved_model/user:{}_uav:{}/'.format(number_of_user, number_of_uav)
-    model_save_path = save_dir + 'MODEL_{}_NumOfUser:{}_NumOfUAV:{}.pt'.format(model_name, number_of_user, number_of_uav)
+    model_save_path = save_dir + 'MODEL_{}_NumOfUser:{}_NumOfUAV:{}_TI:{}_ME:{}.pt'.format(model_name, number_of_user, number_of_uav, train_per_step, Memory)
 
     # LOAD GPU
     device = torch.device('cuda')
