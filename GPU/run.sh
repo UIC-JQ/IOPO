@@ -15,13 +15,12 @@ mlp_drop_out=0.1;
 lstm_drop_out=0.1;
 reg_better_sol_number=20;
 # 修改
-# training_int=$3;
-training_int=10;
-mem_size=`expr $batch_size \* 1.5`;
-train_iter=200000;
+training_int=10;                                                             # training interval大小
+mem_size=384
+train_iter=200000;                                                           # training step总数
 # ------------------------------------
 # 流程配置
-generate_dataset=false
+generate_dataset=true
 test_no_reg_method=false
 
 # -----------------------------------------------------

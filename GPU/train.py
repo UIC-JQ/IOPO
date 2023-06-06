@@ -11,13 +11,14 @@ from Model_LSTM import LSTM_Model
 from Model_LSTM_IMP import Model_LSTM_IMP
 from Model_MLP import MLP
 
+OVT_PENALTY = 5000
 
 def eng_cost_wrapper_func(records, data_config):
     """
     计算给定allocation plan的energy cost.
     """
     def inner(idx, allocate_plan):
-        return whale(records[idx], allocate_plan, data_config=data_config, need_stats=False)
+        return whale(records[idx], allocate_plan, data_config=data_config, need_stats=False, PENALTY=OVT_PENALTY)
     
     return inner
 
@@ -57,7 +58,7 @@ if __name__ == "__main__":
 
     # ---------------------------------------------------------------------------------
     # Load training data
-    dataset_save_dir      = "user:{}_uav:{}".format(number_of_user, number_of_uav)
+    dataset_save_dir = "user:{}_uav:{}".format(number_of_user, number_of_uav)
     X_feature_file        = './Dataset/{}/TRAINING_NumOfUser:{}_NumOfUAV:{}_feature.csv'.format(dataset_save_dir, number_of_user, number_of_uav)
     Y_ans_file            = './Dataset/{}/TRAINING_NumOfUser:{}_NumOfUAV:{}_solution.csv'.format(dataset_save_dir, number_of_user, number_of_uav)
     Y_eng_cost_save_path  = './Dataset/{}/TRAINING_NumOfUser:{}_NumOfUAV:{}_energy_cost.csv'.format(dataset_save_dir, number_of_user, number_of_uav)
@@ -113,13 +114,14 @@ if __name__ == "__main__":
         LOG_KNM_updated_idx = set()
         LOG_ENG_COST_BEFORE_TRAIN = torch.mean(ENG_COST)
         LOG_ENG_COST_DURING_TRAINING = []
+        LOG_OPPO_DISCOVER = []
 
         for i in tqdm(range(number_of_iter)):
             idx = i % Num_of_training_pairs
             input_feature = X[idx]
 
             prob, ans, zero_one_ans = model.generate_answer(input_feature, data_config)
-            LOG_ENG_COST_DURING_TRAINING.append(whale(Record[idx], zero_one_ans, data_config, PENALTY=0)[-1])
+            LOG_ENG_COST_DURING_TRAINING.append(whale(Record[idx], zero_one_ans, data_config, PENALTY=OVT_PENALTY)[-1])
             eng_cost, new_y = generate_better_allocate_plan_KMN(ans,
                                                                 zero_one_ans,
                                                                 prob,
@@ -138,6 +140,7 @@ if __name__ == "__main__":
 
                 # 记录log
                 LOG_KNM_updated_idx.add(idx)
+                LOG_OPPO_DISCOVER.append(i)
 
             model.encode(feature=input_feature, y=Y[idx])
 
@@ -157,6 +160,9 @@ if __name__ == "__main__":
         # 保存eng cost的变化
         EngCostDuringTraining_save_path = save_dir + 'EngCostDuringTraining_TI:{}_MemS:{}'.format(train_per_step, Memory)
         save_to_csv(LOG_ENG_COST_DURING_TRAINING, EngCostDuringTraining_save_path)
+        
+        PolicyDisDuringTraining_save_path = save_dir + 'PolicyDisDuringTraining_TI:{}_MemS:{}'.format(train_per_step, Memory)
+        save_to_csv(LOG_OPPO_DISCOVER, PolicyDisDuringTraining_save_path)
     else:
         print('[config] ONLY use pre-genererated answers training.')
         for i in tqdm(range(number_of_iter)):

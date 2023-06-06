@@ -15,13 +15,19 @@ def try_method(X, method, method_name, **kws):
     """
     测试模型method, 并统计相关结果
     """
-    avg_eng_cost, avg_ovt_penalized_eng_cost, overtime_records_ratio, avg_overtime_ratio, avg_overtime_people = method(X, data_config, **kws)
+    avg_eng_cost, avg_ovt_penalized_eng_cost, overtime_records_ratio, avg_overtime_ratio, avg_overtime_people, extra_logs = method(X, data_config, **kws)
     print('--> 方法名: [%s]' % method_name)
     print('*平均每条record的energy cost (包含超时penality):', avg_ovt_penalized_eng_cost)
     print('----平均每条record的energy cost (不包含超时penality):', avg_eng_cost)
     print('*所有record中，存在超时user的record比例: {:.3f}%'.format(overtime_records_ratio * 100))
     print('*所有存在超时user的record中，平均超时人数占总人数的比例: {:.3f}%'.format(avg_overtime_ratio * 100))
     print('*所有存在超时user的record中，平均超时人数为', avg_overtime_people)
+
+    if extra_logs:
+        # print('-' * 50)
+        print('*平均传输速度: {}'.format(extra_logs['trans_speed']))
+        print('*平均传输energy cost: {}'.format(extra_logs['trans_eng']))
+
 
 def print_plan(allocate_plan, data_config):
     """
@@ -128,7 +134,6 @@ def allocate_plan_with_time_constraint(record, data_config: DataConfig, **kws):
         for chs in items[1:][0]:
             user_to_uav_infos[user_idx].append(chs)
 
-
     _, _, __allocate_plan = data_config.allocate_with_no_overtime_constraint(record, local_time_ranking, user_to_uav_infos)
 
     if kws['print_plan']:
@@ -144,19 +149,26 @@ def compare_method(allocate_plan_generation_method, PENALTY):
         store_overtime_ratio = []               # 存在超时的分配方案中，超时用户的比例。
         store_overtime_people = []              # 存在超时的分配方案中，超时用户的人数。
 
+        total_trans_speed = total_trans_eng = 0
+        # print('log, remove board = {}'.format(kws['remove_board']))
+        exp_remove_board = kws['remove_board'] if 'remove_board' in kws else False
+
         for idx, record in enumerate(tqdm(X)):
             # 用给定方法生成一个 allocate plan
             __allocate_plan = allocate_plan_generation_method(record, data_config, data_idx=idx, **kws)
-            # 计算energy cost
-            _, energy, overtime_logs = whale(record, __allocate_plan, data_config, need_stats=True, optimize_phi=True)
+
+            # 计算energy costn
+            _, energy, overtime_logs = whale(record, __allocate_plan, data_config, need_stats=True, optimize_phi=True, remove_board=exp_remove_board, test_stage=True)
 
             if overtime_logs:
             # 统计超时数据stat
             # 如果这条record有超时
                 total_overtime_records_num += 1
-                store_overtime_ratio.append(len(overtime_logs) / data_config.user_number)
-                store_overtime_people.append(len(overtime_logs))
-                total_overtime_penalized_eng_cost += (PENALTY) * len(overtime_logs)
+                store_overtime_ratio.append(len(overtime_logs[0]) / data_config.user_number)
+                store_overtime_people.append(len(overtime_logs[0]))
+                total_overtime_penalized_eng_cost += (PENALTY) * len(overtime_logs[0])
+                total_trans_speed += overtime_logs[1]
+                total_trans_eng += overtime_logs[-1]
 
             total_eng_cost += energy
             total_overtime_penalized_eng_cost += energy
@@ -168,7 +180,12 @@ def compare_method(allocate_plan_generation_method, PENALTY):
         avg_overtime_ratio              = sum(store_overtime_ratio) / len(store_overtime_ratio) if len(store_overtime_ratio) else 0
         avg_overtime_people             = sum(store_overtime_people) / len(store_overtime_people) if len(store_overtime_people) else 0
 
-        return avg_eng_cost, avg_overtime_pe_eng_cost, overtime_records_ratio, avg_overtime_ratio, avg_overtime_people
+        extra_logs = {
+            'trans_speed' : total_trans_speed / len(X),
+            'trans_eng' : total_trans_eng / len(X),
+        }
+
+        return avg_eng_cost, avg_overtime_pe_eng_cost, overtime_records_ratio, avg_overtime_ratio, avg_overtime_people, extra_logs
     
     return inner
 
@@ -240,6 +257,20 @@ if __name__ == '__main__':
     # ---------------------------------------------------------------------------------------------------------
     # 开始测试不同方法
     # 1. NN model
+    exp_remove_board = False
+    if exp_remove_board:
+        print('[log]: Remove board')
+        try_method(Record, 
+                  method=compare_method(allocate_plan_NN_model, OVERTIME_PENALTY),
+                  method_name='NN Model : {}'.format(str(model_name)),
+                  model=model,
+                  input_feature=feature,
+                  print_plan=False,
+                  remove_board=True)
+        
+        print('-' * 50)
+
+    print('[log]: Exp with board')
     try_method(Record, 
                method=compare_method(allocate_plan_NN_model, OVERTIME_PENALTY),
                method_name='NN Model : {}'.format(str(model_name)),
@@ -247,6 +278,7 @@ if __name__ == '__main__':
                input_feature=feature,
                print_plan=False)
 
+    print('-' * 50)
     try_method(Record, 
                method=compare_method(allocate_plan_NN_model_optimize, OVERTIME_PENALTY),
                method_name='NN Model : {} (better solution is generated during test with KNM algorithm, K={})'.format(str(model_name), KNM_K),

@@ -161,7 +161,7 @@ def __compute_user_to_uav_trans_speed(uav_coordinate, user_coordinate, data_conf
 
     return _rate()
 
-def whale(h, b, data_config, need_stats=False, optimize_phi=False, compute_local_eng_cost=False, compute_upload_eng_cost=False, PENALTY=None):
+def whale(h, b, data_config, need_stats=False, optimize_phi=False, compute_local_eng_cost=False, compute_upload_eng_cost=False, PENALTY=None, remove_board=False, test_stage=False):
     # for equation 1 - 3
     '''
     IRS在x-z平面
@@ -194,6 +194,9 @@ def whale(h, b, data_config, need_stats=False, optimize_phi=False, compute_local
     
     x = data_config.IRS_x_number #IRS x-axis refector
     z = data_config.IRS_z_number #IRS z-axis refector
+    # modify during test
+    # x = 20 #IRS x-axis refector
+    # z = 10 #IRS z-axis refector
     
     #bandwith & sub-channel
     p = data_config.CHANNEL_POWER #信道传输功率
@@ -293,9 +296,14 @@ def whale(h, b, data_config, need_stats=False, optimize_phi=False, compute_local
         #print("ghat - IRS gain",result)
         return result
 
-    def rate(u, m, phi):
+    def rate(u, m, phi, remove_board=None):
         gain = abs(ghatGain(u,m,phi)+hGain(u,m))
-        res = B*np.math.log((1+(p*abs(ghatGain(u,m,phi)+hGain(u,m))**2)/sigma2),2)
+        assert remove_board is not None
+
+        if not remove_board:
+            res = B*np.math.log((1+(p*abs(ghatGain(u,m,phi)+hGain(u,m))**2)/sigma2),2)
+        else:
+            res = B*np.math.log((1+(p*abs(hGain(u,m))**2)/sigma2),2)
 
         result = res/(1/T)#bit/s to bit/slot
         return result
@@ -352,19 +360,23 @@ def whale(h, b, data_config, need_stats=False, optimize_phi=False, compute_local
         #print(x)
         return x
 
-    def E_offload(phi):
+    def E_offload(phi, remove_board=remove_board):
         E_tran = 0
         E_comp = 0
         ovt_log = set()
+        avg_trans_speed = 0
+        avg_trans_eng_cost = 0
+
 
         for j in off:
             u = j[0] 
             m = j[1]
-            time_t = data_u[u] / rate(u,m,phi)
+            trans_speed = rate(u,m,phi, remove_board=remove_board)
+            time_t = data_u[u] / trans_speed
             # print("transition time",time_t)
             time_c = cycle_u[u] / (z_m[m]/loaddic[m])
             # print('compute_time:', time_c)
-            tran_enery = (data_u[u]/rate(u,m,phi)) * p_t[u]
+            tran_enery = (data_u[u] / trans_speed) * p_t[u]
             if (time_c + time_t) > time_u[u]:
                 # print("Task must not exceed the deadline")
                 # add penalty
@@ -374,10 +386,13 @@ def whale(h, b, data_config, need_stats=False, optimize_phi=False, compute_local
                 E_tran = E_tran + tran_enery
 
             E_comp = E_comp + cycle_u[u]/z_m[m]*p_m[m]
+
+            avg_trans_speed += trans_speed
+            avg_trans_eng_cost += tran_enery
         
         result = E_tran+E_comp
 
-        return result, ovt_log
+        return result, ovt_log, avg_trans_speed / user, avg_trans_eng_cost / user
     
     def E_local():
         res = local()
@@ -399,17 +414,26 @@ def whale(h, b, data_config, need_stats=False, optimize_phi=False, compute_local
     # whale algorithm starts here
     # - target func
     def prob(phi):
-        r1, _ = E_offload(phi)
+        r1, _, _, _ = E_offload(phi)
         r2, _ = E_local()
 
         return r1 + r2
     
-    def overtime_stat(phi):
-        _, log1 = E_offload(phi)
+    def overtime_stat(phi, remove_board=None, test_stage=False):
+        assert remove_board is not None
+        _, log1, trans_speed, trans_eng_cost = E_offload(phi, remove_board)
         _, log2 = E_local()
+        if not test_stage:
+            return list(log1.union(log2))
+            
+        return list(log1.union(log2)), trans_speed, trans_eng_cost
+    
+    # def delete_board_exp(phi, flag):
+    #     eng_cost, __logs, avg_trans_speed, avg_trans_eng_cost = E_offload(phi, remove_board=flag)
+    #     if len(__logs) > 0:
+    #         eng_cost += len(__logs) * penalty
 
-        return list(log1.union(log2))
-        
+    #     return eng_cost, avg_trans_speed, avg_trans_eng_cost 
 
     # whale class
     class whale:
@@ -515,9 +539,8 @@ def whale(h, b, data_config, need_stats=False, optimize_phi=False, compute_local
 
     err = fitness(best_position)
     
-
     if need_stats:
-        return best_position, err, overtime_stat(best_position)
+        return best_position, err, overtime_stat(best_position, remove_board=remove_board, test_stage=test_stage)
 
     return best_position, err
 
