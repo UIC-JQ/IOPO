@@ -69,7 +69,7 @@ if __name__ == "__main__":
     Num_of_training_pairs = len(X)                                                                         # 获取训练数据量
 
     Y                     = torch.Tensor(load_from_csv(file_path=Y_ans_file, data_type=int))               # 读取reference answer
-    ENG_COST              = torch.Tensor(load_from_csv(file_path=Y_eng_cost_save_path, data_type=float))                 # 读取reference answer的energy cost
+    ENG_COST              = torch.Tensor(load_from_csv(file_path=Y_eng_cost_save_path, data_type=float))   # 读取reference answer的energy cost
     Record                = load_from_csv(file_path=ENV_file_path, data_type=float)                        # 读取环境状态
     # ---------------------------------------------------------------------------------
 
@@ -115,13 +115,23 @@ if __name__ == "__main__":
         LOG_ENG_COST_BEFORE_TRAIN = torch.mean(ENG_COST)
         LOG_ENG_COST_DURING_TRAINING = []
         LOG_OPPO_DISCOVER = []
+        
+        
+        EXP_without_using_initial_ref_plan = False
+        print('[config] Without using initial reference plan at the start of training = {}'.format(EXP_without_using_initial_ref_plan))
 
         for i in tqdm(range(number_of_iter)):
             idx = i % Num_of_training_pairs
             input_feature = X[idx]
 
             prob, ans, zero_one_ans = model.generate_answer(input_feature, data_config)
-            LOG_ENG_COST_DURING_TRAINING.append(whale(Record[idx], zero_one_ans, data_config, PENALTY=OVT_PENALTY)[-1])
+            predicted_eng_cost = whale(Record[idx], zero_one_ans, data_config, PENALTY=OVT_PENALTY)[-1]
+            
+            LOG_ENG_COST_DURING_TRAINING.append(predicted_eng_cost)
+            
+            if i < Num_of_training_pairs:
+                pass
+            
             eng_cost, new_y = generate_better_allocate_plan_KMN(ans,
                                                                 zero_one_ans,
                                                                 prob,
@@ -131,16 +141,34 @@ if __name__ == "__main__":
                                                                 convert_output_size=cvt_output_size,
                                                                 data_config=data_config,
                                                                 threshold_p=1 / (data_config.uav_number + 1))
-            # # 如果存在能耗更低的解
-            if eng_cost < ENG_COST[idx]:
-                # print('Regenerate a better solution, cost: {}, old: {}'.format(eng_cost, ENG_COST[idx]))
-                ENG_COST[idx, :] = eng_cost.to(device)
-                Y[idx, :]        = new_y.to(device)
-                log_gen_better_sol_cnt += 1
-
-                # 记录log
-                LOG_KNM_updated_idx.add(idx)
-                LOG_OPPO_DISCOVER.append(i)
+            
+            if EXP_without_using_initial_ref_plan and i < Num_of_training_pairs:
+                # 如果进行试验，先放入生成的y
+                if eng_cost < predicted_eng_cost:
+                    # 如果OPPO找的更好
+                    ENG_COST[idx, :] = eng_cost.to(device)
+                    Y[idx, :]        = new_y.to(device)
+                    log_gen_better_sol_cnt += 1
+    
+                    # 记录log
+                    LOG_KNM_updated_idx.add(idx)
+                    LOG_OPPO_DISCOVER.append(i)
+                else:
+                    # 模型原来的就好
+                    ENG_COST[idx, :] = torch.scalar_tensor(predicted_eng_cost).to(device)
+                    Y[idx, :]        = torch.Tensor(ans).to(device)
+                    
+            else:
+                # # 如果存在能耗更低的解
+                if eng_cost < ENG_COST[idx]:
+                    # print('Regenerate a better solution, cost: {}, old: {}'.format(eng_cost, ENG_COST[idx]))
+                    ENG_COST[idx, :] = eng_cost.to(device)
+                    Y[idx, :]        = new_y.to(device)
+                    log_gen_better_sol_cnt += 1
+    
+                    # 记录log
+                    LOG_KNM_updated_idx.add(idx)
+                    LOG_OPPO_DISCOVER.append(i)
 
             model.encode(feature=input_feature, y=Y[idx])
 

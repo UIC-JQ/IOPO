@@ -87,6 +87,7 @@ def allocate_plan_NN_model_optimize(record, data_config: DataConfig, **kws):
     data_idx = kws['data_idx']
     X = kws['input_feature'][data_idx,:]
     KMN_K = kws['KMN_K']
+    SEARCH_OVT_P = 1000
     prob, ans, __allocate_plan = model.generate_answer(X, data_config)
 
     # 计算当前 NN预测的 allocation 的 energy cost
@@ -102,7 +103,7 @@ def allocate_plan_NN_model_optimize(record, data_config: DataConfig, **kws):
                                                             data_config=data_config,
                                                             convert_output_size=data_config.user_number*data_config.uav_number,
                                                             threshold_p=1 / (data_config.uav_number + 1),
-                                                            PENALTY=kws['OVT_PENALTY'])
+                                                            PENALTY=SEARCH_OVT_P)
 
     if opt_eng_cost < eng_cost:
         __allocate_plan = convert_index_to_zero_one_sol(new_y, data_config)
@@ -160,15 +161,16 @@ def compare_method(allocate_plan_generation_method, PENALTY):
             # 计算energy costn
             _, energy, overtime_logs = whale(record, __allocate_plan, data_config, need_stats=True, optimize_phi=True, remove_board=exp_remove_board, test_stage=True)
 
-            if overtime_logs:
+            if len(overtime_logs[0]) > 0:
             # 统计超时数据stat
             # 如果这条record有超时
                 total_overtime_records_num += 1
                 store_overtime_ratio.append(len(overtime_logs[0]) / data_config.user_number)
                 store_overtime_people.append(len(overtime_logs[0]))
                 total_overtime_penalized_eng_cost += (PENALTY) * len(overtime_logs[0])
-                total_trans_speed += overtime_logs[1]
-                total_trans_eng += overtime_logs[-1]
+                
+            total_trans_speed += overtime_logs[1]
+            total_trans_eng += overtime_logs[-1]
 
             total_eng_cost += energy
             total_overtime_penalized_eng_cost += energy
