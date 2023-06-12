@@ -125,7 +125,7 @@ if __name__ == "__main__":
             input_feature = X[idx]
 
             prob, ans, zero_one_ans = model.generate_answer(input_feature, data_config)
-            predicted_eng_cost = whale(Record[idx], zero_one_ans, data_config, PENALTY=OVT_PENALTY)[-1]
+            predicted_eng_cost = whale(Record[idx], zero_one_ans, data_config, PENALTY=0)[-1]
             
             LOG_ENG_COST_DURING_TRAINING.append(predicted_eng_cost)
             
