@@ -1,63 +1,0 @@
-/usr/bin/lua: /nfs/opt/apps/lmod/lmod/libexec/lmod:61: module 'posix' not found:
-	no field package.preload['posix']
-	no file '/usr/share/lua/5.1/posix.lua'
-	no file '/usr/share/lua/5.1/posix/init.lua'
-	no file '/usr/lib64/lua/5.1/posix.lua'
-	no file '/usr/lib64/lua/5.1/posix/init.lua'
-	no file '/usr/lib64/lua/5.1/posix.so'
-	no file '/usr/lib64/lua/5.1/loadall.so'
-stack traceback:
-	[C]: in function 'require'
-	/nfs/opt/apps/lmod/lmod/libexec/lmod:61: in main chunk
-	[C]: ?
-[System] Generating training and testing dataset ...
-[Data Generation] Using generated solution with overtime constraint.
----> saving configs to file: "./Config/CONFIG_NumOfUser:15_NumOfUAV:3.json"
-Done.
-Saved configs:
-* name: SPEED_OF_LIGHT, value: 299792458, type: <class 'int'>
-* name: TIME_SLOT_LENGTH, value: 0.000125, type: <class 'float'>
-* name: CHANNEL_POWER, value: 2, type: <class 'int'>
-* name: SUB_CHANNEL_FREQUENCY, value: 370000000000.0, type: <class 'float'>
-* name: SUB_CHANNEL_K, value: 1e-07, type: <class 'float'>
-* name: CHANNEL_BANDWIDTH, value: 2000000000.0, type: <class 'float'>
-* name: overtime_penalty, value: 1000, type: <class 'int'>
-* name: user_number, value: 15, type: <class 'int'>
-* name: uav_number, value: 3, type: <class 'int'>
-* name: IRS_delta, value: 0.05, type: <class 'float'>
-* name: IRS_l0_coordinate, value: [20  0 20], type: <class 'numpy.ndarray'>
-* name: IRS_x_number, value: 5, type: <class 'int'>
-* name: IRS_z_number, value: 5, type: <class 'int'>
-* name: user_computational_capacity, value: [7559, 7271, 5840, 5661, 7762, 7365, 5633, 9502, 7919, 5315, 6322, 5172, 9520, 7192, 8633], type: <class 'list'>
-* name: user_computation_power, value: [0.028888603409984136, 0.017690227438237158, 0.011237156581260106, 0.02005820220496319, 0.028714688682917884, 0.02447080347247444, 0.025659938829638254, 0.026825628163922165, 0.01265012023448208, 0.0192878061137614, 0.011249695863188493, 0.024903760633819726, 0.011632833793424868, 0.016526213850068926, 0.020735854554730745], type: <class 'list'>
-* name: user_transmit_power, value: [0.004090900707239203, 0.0038404401056325, 0.004862424004705513, 0.004081775421304159, 0.0010372358777708964, 0.0033747400001850245, 0.0044479879641838565, 0.001237660299871509, 0.002775542899053061, 0.002241248420598611, 0.0038432604597048977, 0.004868241587950108, 0.0030394622457676156, 0.0036905856536289623, 0.002544102487504012], type: <class 'list'>
-* name: uav_computational_capacity, value: [25000, 30000, 35000], type: <class 'list'>
-* name: uav_computational_power, value: [0.020894951439151207, 0.02077588545546806, 0.03829175666891989], type: <class 'list'>
-* name: dataset_board_x_size, value: 600, type: <class 'int'>
-* name: dataset_board_y_size, value: 800, type: <class 'int'>
-* name: uav_coordinate, value: [[458.28528226 407.72746042  20.        ]
- [120.95089915 168.30928708  20.        ]
- [590.28377102  20.39779667  20.        ]], type: <class 'numpy.ndarray'>
-* name: dataset_user_task_size_l_b, value: 256, type: <class 'int'>
-* name: dataset_user_task_size_h_b, value: 800000, type: <class 'int'>
-* name: dataset_cpb_l_b, value: 40, type: <class 'int'>
-* name: dataset_cpb_h_b, value: 150, type: <class 'int'>
-* name: dataset_dataset_cut_off_time, value: 0, type: <class 'int'>
-* name: dataset_random_times_for_selecting_best_sol, value: 100, type: <class 'int'>
-* name: optimize_num_whales, value: 3, type: <class 'int'>
-* name: optimize_max_iter, value: 5, type: <class 'int'>
-  0%|          | 0/10 [00:00<?, ?it/s] 40%|████      | 4/10 [00:00<00:00, 34.05it/s] 80%|████████  | 8/10 [00:00<00:00, 33.68it/s]100%|██████████| 10/10 [00:00<00:00, 34.01it/s]
-[LOG]: average energy cost: 864.2811940899734
-  0%|          | 0/5 [00:00<?, ?it/s] 80%|████████  | 4/5 [00:00<00:00, 33.69it/s]100%|██████████| 5/5 [00:00<00:00, 34.21it/s]
-[LOG]: average energy cost: 905.1054637332918
-[System] Training model mlp, Generate Better Solution During Training = True ...
-  0%|          | 0/10 [00:00<?, ?it/s] 10%|█         | 1/10 [00:00<00:06,  1.42it/s] 20%|██        | 2/10 [00:00<00:03,  2.41it/s] 30%|███       | 3/10 [00:01<00:02,  3.12it/s] 40%|████      | 4/10 [00:01<00:01,  3.52it/s] 50%|█████     | 5/10 [00:01<00:01,  3.84it/s] 60%|██████    | 6/10 [00:01<00:01,  3.99it/s] 70%|███████   | 7/10 [00:01<00:00,  4.32it/s] 80%|████████  | 8/10 [00:02<00:00,  4.57it/s] 90%|█████████ | 9/10 [00:02<00:00,  4.51it/s]100%|██████████| 10/10 [00:02<00:00,  4.39it/s]100%|██████████| 10/10 [00:02<00:00,  3.76it/s]
-[System] Perform Testing ...
-  0%|          | 0/5 [00:00<?, ?it/s] 20%|██        | 1/5 [00:00<00:03,  1.10it/s] 40%|████      | 2/5 [00:01<00:01,  2.19it/s] 60%|██████    | 3/5 [00:01<00:00,  3.37it/s]100%|██████████| 5/5 [00:01<00:00,  5.46it/s]100%|██████████| 5/5 [00:01<00:00,  3.71it/s]
-  0%|          | 0/5 [00:00<?, ?it/s] 20%|██        | 1/5 [00:00<00:01,  3.93it/s] 40%|████      | 2/5 [00:00<00:00,  4.18it/s] 60%|██████    | 3/5 [00:00<00:00,  4.31it/s] 80%|████████  | 4/5 [00:00<00:00,  4.55it/s]100%|██████████| 5/5 [00:01<00:00,  4.78it/s]100%|██████████| 5/5 [00:01<00:00,  4.55it/s]
-  0%|          | 0/5 [00:00<?, ?it/s]100%|██████████| 5/5 [00:00<00:00, 1003.90it/s]
-  0%|          | 0/5 [00:00<?, ?it/s] 20%|██        | 1/5 [00:00<00:01,  3.72it/s] 40%|████      | 2/5 [00:00<00:00,  3.75it/s] 60%|██████    | 3/5 [00:00<00:00,  3.74it/s] 80%|████████  | 4/5 [00:01<00:00,  3.74it/s]100%|██████████| 5/5 [00:01<00:00,  3.74it/s]100%|██████████| 5/5 [00:01<00:00,  3.74it/s]
-  0%|          | 0/5 [00:00<?, ?it/s] 40%|████      | 2/5 [00:00<00:00, 10.51it/s] 80%|████████  | 4/5 [00:00<00:00,  9.95it/s]100%|██████████| 5/5 [00:00<00:00, 10.51it/s]
-  0%|          | 0/5 [00:00<?, ?it/s] 20%|██        | 1/5 [00:00<00:01,  2.60it/s] 40%|████      | 2/5 [00:00<00:01,  2.59it/s] 60%|██████    | 3/5 [00:01<00:00,  2.60it/s] 80%|████████  | 4/5 [00:01<00:00,  2.60it/s]100%|██████████| 5/5 [00:01<00:00,  2.60it/s]100%|██████████| 5/5 [00:01<00:00,  2.60it/s]
-  0%|          | 0/5 [00:00<?, ?it/s] 20%|██        | 1/5 [00:00<00:01,  2.96it/s] 40%|████      | 2/5 [00:00<00:01,  2.95it/s] 60%|██████    | 3/5 [00:00<00:00,  3.04it/s] 80%|████████  | 4/5 [00:01<00:00,  3.14it/s]100%|██████████| 5/5 [00:01<00:00,  3.04it/s]100%|██████████| 5/5 [00:01<00:00,  3.04it/s]
-All finished

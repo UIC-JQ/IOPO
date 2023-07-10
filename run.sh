@@ -1,8 +1,8 @@
 # 生成数据集配置
 uav_number=$1;                                                               # uav的数量
 user_number=$2;                                                              # user的数量
-number_of_train_data=15000;                                                  # 训练数据的数量
-number_of_test_data=5000;                                                    # 测试数据数量
+number_of_train_data=200000;                                                 # 训练数据的数量
+number_of_test_data=1000;                                                    # 测试数据数量
 overtime_penalty=1000                                                        # 数据集中，超时解的penalty
 answer_generate_method=0                                                     # 生成解的方法 （0: 带不超时constraint生成的解， 1:不带不超时constraint生成解，2:random生成解（不包含不超时constraint）。
 
@@ -15,12 +15,12 @@ mlp_drop_out=0.1;
 lstm_drop_out=0.1;
 reg_better_sol_number=20;
 # 修改
-training_int=10;                                                             # training interval大小
+training_int=10;                                                           # training interval大小
 mem_size=384
-train_iter=200000;                                                           # training step总数
+train_iter=400000;                                                         # training step总数
 # ------------------------------------
 # 流程配置
-generate_dataset=true
+generate_dataset=false
 test_no_reg_method=false
 
 # -----------------------------------------------------
@@ -118,87 +118,4 @@ then
                     --userNumber $user_number > "${store_log_dir}/[TEST_LOG]_${model_name}_without_reg_better_solution".txt
 fi
 
-# -----------------------------------------------------
-# 模型2LSTM:
-# model_name="LSTM"
-# # 训练中生成更好的解
-# echo "[System] Training model ${model_name}, Generate Better Solution During Training = True ..."
-# python train.py --nnModel $model_name \
-#                 --uavNumber $uav_number \
-#                 --userNumber $user_number \
-#                 --batch_size $batch_size \
-#                 --hidden_dim $hidden_dim \
-#                 --num_of_iter $train_iter \
-#                 --drop_out $lstm_drop_out \
-#                 --reg_better_sol_k $reg_better_sol_number \
-#                 --reg_better_sol > "${store_log_dir}/[TRAIN_LOG]_${model_name}_train_log".txt
-
-# echo "[System] Perform Testing ..."
-# python test_compare_diff_methods.py \
-#                 --test_NN_only \
-#                 --nnModel $model_name \
-#                 --uavNumber $uav_number \
-#                 --userNumber $user_number > "${store_log_dir}/[TEST_LOG]_${model_name}".txt
-
-# if ($test_no_reg_method = true)
-# then
-#     # 训练中不生成更好的解
-#     echo "[System] Training model ${model_name}, Generate Better Solution During Training = False ..."
-#     python train.py --nnModel $model_name \
-#                     --uavNumber $uav_number \
-#                     --userNumber $user_number \
-#                     --batch_size $batch_size \
-#                     --hidden_dim $hidden_dim \
-#                     --num_of_iter $train_iter \
-#                     --drop_out $lstm_drop_out > "${store_log_dir}/[TRAIN_LOG]_${model_name}_without_reg_better_solution_train_log".txt
-
-#     echo "[System] Perform Testing ..."
-#     python test_compare_diff_methods.py \
-#                     --test_NN_only \
-#                     --nnModel $model_name \
-#                     --uavNumber $uav_number \
-#                     --userNumber $user_number > "${store_log_dir}/[TEST_LOG]_${model_name}_without_reg_better_solution".txt
-# fi
-
-# # -----------------------------------------------------
-# # 模型3 LSTM + ATTENTION
-# model_name="LSTM_ATT"
-# # 训练中生成更好的解
-# echo "[System] Training model ${model_name}, Generate Better Solution During Training = True ..."
-# python train.py --nnModel $model_name \
-#                 --uavNumber $uav_number \
-#                 --userNumber $user_number \
-#                 --batch_size $batch_size \
-#                 --hidden_dim $hidden_dim \
-#                 --num_of_iter $train_iter \
-#                 --drop_out $lstm_drop_out \
-#                 --reg_better_sol_k $reg_better_sol_number \
-#                 --reg_better_sol > "${store_log_dir}/[TRAIN_LOG]_${model_name}_train_log".txt
-
-# echo "[System] Perform Testing ..."
-# python test_compare_diff_methods.py \
-#                 --test_NN_only \
-#                 --nnModel $model_name \
-#                 --uavNumber $uav_number \
-#                 --userNumber $user_number > "${store_log_dir}/[TEST_LOG]_${model_name}".txt
-
-# if ($test_no_reg_method = true)
-# then
-#     # 训练中不生成更好的解
-#     echo "[System] Training model ${model_name}, Generate Better Solution During Training = False ..."
-#     python train.py --nnModel $model_name \
-#                     --uavNumber $uav_number \
-#                     --userNumber $user_number \
-#                     --batch_size $batch_size \
-#                     --hidden_dim $hidden_dim \
-#                     --num_of_iter $train_iter \
-#                     --drop_out $lstm_drop_out > "${store_log_dir}/[TRAIN_LOG]_${model_name}_without_reg_better_solution_train_log".txt
-
-#     echo "[System] Perform Testing ..."
-#     python test_compare_diff_methods.py \
-#                     --test_NN_only \
-#                     --nnModel $model_name \
-#                     --uavNumber $uav_number \
-#                     --userNumber $user_number > "${store_log_dir}/[TEST_LOG]_${model_name}_without_reg_better_solution".txt
-# fi
 echo "All finished"

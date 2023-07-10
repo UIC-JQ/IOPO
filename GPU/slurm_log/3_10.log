@@ -1,51 +1,0 @@
-[System] Generating training and testing dataset ...
-[Data Generation] Using generated solution with overtime constraint.
----> saving configs to file: "./Config/CONFIG_NumOfUser:10_NumOfUAV:3.json"
-Done.
-Saved configs:
-* name: SPEED_OF_LIGHT, value: 299792458, type: <class 'int'>
-* name: TIME_SLOT_LENGTH, value: 0.000125, type: <class 'float'>
-* name: CHANNEL_POWER, value: 2, type: <class 'int'>
-* name: SUB_CHANNEL_FREQUENCY, value: 370000000000.0, type: <class 'float'>
-* name: SUB_CHANNEL_K, value: 1e-07, type: <class 'float'>
-* name: CHANNEL_BANDWIDTH, value: 3000000000.0, type: <class 'float'>
-* name: overtime_penalty, value: 1000, type: <class 'int'>
-* name: user_number, value: 10, type: <class 'int'>
-* name: uav_number, value: 3, type: <class 'int'>
-* name: IRS_delta, value: 0.05, type: <class 'float'>
-* name: IRS_l0_coordinate, value: [20  0 20], type: <class 'numpy.ndarray'>
-* name: IRS_x_number, value: 5, type: <class 'int'>
-* name: IRS_z_number, value: 5, type: <class 'int'>
-* name: user_computational_capacity, value: [5262, 7729, 6854, 8360, 5090, 8495, 5001, 7003, 6848, 6256], type: <class 'list'>
-* name: user_computation_power, value: [0.027743099755736057, 0.018632518288206185, 0.020381985610345682, 0.015450962055285853, 0.019009923958432873, 0.022325873277002518, 0.018447265158542864, 0.02014801973089056, 0.01789837443013506, 0.017153478288050313], type: <class 'list'>
-* name: user_transmit_power, value: [0.0034975598740132137, 0.002613169588315316, 0.002567411686039773, 0.004705497941232473, 0.0041911156059182865, 0.0018228923996647009, 0.003489551932465513, 0.002676884041665461, 0.0034033893146315952, 0.0028097625582682545], type: <class 'list'>
-* name: uav_computational_capacity, value: [25000, 30000, 35000], type: <class 'list'>
-* name: uav_computational_power, value: [0.03323859183717952, 0.03386381709078591, 0.025701778022441762], type: <class 'list'>
-* name: dataset_board_x_size, value: 600, type: <class 'int'>
-* name: dataset_board_y_size, value: 800, type: <class 'int'>
-* name: uav_coordinate, value: [[569.89577888  68.97410706  20.        ]
- [429.65470505 359.73071143  20.        ]
- [506.83465355 787.17736389  20.        ]], type: <class 'numpy.ndarray'>
-* name: dataset_user_task_size_l_b, value: 256, type: <class 'int'>
-* name: dataset_user_task_size_h_b, value: 800000, type: <class 'int'>
-* name: dataset_cpb_l_b, value: 40, type: <class 'int'>
-* name: dataset_cpb_h_b, value: 150, type: <class 'int'>
-* name: dataset_dataset_cut_off_time, value: 0, type: <class 'int'>
-* name: dataset_random_times_for_selecting_best_sol, value: 100, type: <class 'int'>
-* name: optimize_num_whales, value: 3, type: <class 'int'>
-* name: optimize_max_iter, value: 5, type: <class 'int'>
-  0%|          | 0/10 [00:00<?, ?it/s] 40%|████      | 4/10 [00:00<00:00, 34.98it/s] 80%|████████  | 8/10 [00:00<00:00, 37.75it/s]100%|██████████| 10/10 [00:00<00:00, 37.81it/s]
-[LOG]: average energy cost: 632.161125537832
-  0%|          | 0/5 [00:00<?, ?it/s]100%|██████████| 5/5 [00:00<00:00, 42.06it/s]100%|██████████| 5/5 [00:00<00:00, 42.03it/s]
-[LOG]: average energy cost: 604.7531898819709
-[System] Training model mlp, Generate Better Solution During Training = True ...
-  0%|          | 0/10 [00:00<?, ?it/s] 10%|█         | 1/10 [00:01<00:09,  1.10s/it] 30%|███       | 3/10 [00:01<00:02,  2.82it/s] 40%|████      | 4/10 [00:01<00:01,  3.72it/s] 60%|██████    | 6/10 [00:01<00:00,  5.91it/s] 80%|████████  | 8/10 [00:01<00:00,  7.38it/s]100%|██████████| 10/10 [00:01<00:00,  7.49it/s]100%|██████████| 10/10 [00:01<00:00,  5.08it/s]
-[System] Perform Testing ...
-  0%|          | 0/5 [00:00<?, ?it/s] 20%|██        | 1/5 [00:00<00:03,  1.11it/s] 60%|██████    | 3/5 [00:01<00:00,  3.20it/s] 80%|████████  | 4/5 [00:01<00:00,  3.89it/s]100%|██████████| 5/5 [00:01<00:00,  4.60it/s]100%|██████████| 5/5 [00:01<00:00,  3.56it/s]
-  0%|          | 0/5 [00:00<?, ?it/s] 20%|██        | 1/5 [00:00<00:00,  4.78it/s] 40%|████      | 2/5 [00:00<00:00,  4.57it/s] 60%|██████    | 3/5 [00:00<00:00,  4.68it/s] 80%|████████  | 4/5 [00:00<00:00,  4.67it/s]100%|██████████| 5/5 [00:01<00:00,  4.58it/s]100%|██████████| 5/5 [00:01<00:00,  4.61it/s]
-  0%|          | 0/5 [00:00<?, ?it/s]100%|██████████| 5/5 [00:00<00:00, 1097.70it/s]
-  0%|          | 0/5 [00:00<?, ?it/s] 20%|██        | 1/5 [00:00<00:00,  4.88it/s] 40%|████      | 2/5 [00:00<00:00,  4.96it/s] 60%|██████    | 3/5 [00:00<00:00,  4.99it/s] 80%|████████  | 4/5 [00:00<00:00,  5.00it/s]100%|██████████| 5/5 [00:01<00:00,  5.01it/s]100%|██████████| 5/5 [00:01<00:00,  4.99it/s]
-  0%|          | 0/5 [00:00<?, ?it/s] 20%|██        | 1/5 [00:00<00:00,  9.51it/s] 60%|██████    | 3/5 [00:00<00:00, 10.02it/s]100%|██████████| 5/5 [00:00<00:00, 10.21it/s]100%|██████████| 5/5 [00:00<00:00, 10.13it/s]
-  0%|          | 0/5 [00:00<?, ?it/s] 20%|██        | 1/5 [00:00<00:01,  3.48it/s] 40%|████      | 2/5 [00:00<00:00,  3.48it/s] 60%|██████    | 3/5 [00:00<00:00,  3.46it/s] 80%|████████  | 4/5 [00:01<00:00,  3.46it/s]100%|██████████| 5/5 [00:01<00:00,  3.47it/s]100%|██████████| 5/5 [00:01<00:00,  3.47it/s]
-  0%|          | 0/5 [00:00<?, ?it/s] 20%|██        | 1/5 [00:00<00:00,  4.44it/s] 40%|████      | 2/5 [00:00<00:00,  4.16it/s] 60%|██████    | 3/5 [00:00<00:00,  3.98it/s] 80%|████████  | 4/5 [00:01<00:00,  3.89it/s]100%|██████████| 5/5 [00:01<00:00,  3.94it/s]100%|██████████| 5/5 [00:01<00:00,  3.99it/s]
-All finished

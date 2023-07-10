@@ -2,11 +2,10 @@ import numpy as np
 from dataclass import DataConfig
 from opt3 import whale
 from tqdm import tqdm
+import torch
 import argparse
 
-from Model_LSTM import LSTM_Model
 from Model_MLP import MLP
-from Model_LSTM_IMP import Model_LSTM_IMP
 from util import load_from_csv, setup_seed, generate_better_allocate_plan_KMN, convert_index_to_zero_one_sol
 
 
@@ -14,13 +13,19 @@ def try_method(X, method, method_name, **kws):
     """
     测试模型method, 并统计相关结果
     """
-    avg_eng_cost, avg_ovt_penalized_eng_cost, overtime_records_ratio, avg_overtime_ratio, avg_overtime_people = method(X, data_config, **kws)
+    avg_eng_cost, avg_ovt_penalized_eng_cost, overtime_records_ratio, avg_overtime_ratio, avg_overtime_people, extra_logs = method(X, data_config, **kws)
     print('--> 方法名: [%s]' % method_name)
     print('*平均每条record的energy cost (包含超时penality):', avg_ovt_penalized_eng_cost)
     print('----平均每条record的energy cost (不包含超时penality):', avg_eng_cost)
     print('*所有record中，存在超时user的record比例: {:.3f}%'.format(overtime_records_ratio * 100))
     print('*所有存在超时user的record中，平均超时人数占总人数的比例: {:.3f}%'.format(avg_overtime_ratio * 100))
     print('*所有存在超时user的record中，平均超时人数为', avg_overtime_people)
+
+    if extra_logs:
+        # print('-' * 50)
+        print('*平均传输速度: {}'.format(extra_logs['trans_speed']))
+        print('*平均传输energy cost: {}'.format(extra_logs['trans_eng']))
+
 
 def print_plan(allocate_plan, data_config):
     """
@@ -80,6 +85,7 @@ def allocate_plan_NN_model_optimize(record, data_config: DataConfig, **kws):
     data_idx = kws['data_idx']
     X = kws['input_feature'][data_idx,:]
     KMN_K = kws['KMN_K']
+    SEARCH_OVT_P = 1000
     prob, ans, __allocate_plan = model.generate_answer(X, data_config)
 
     # 计算当前 NN预测的 allocation 的 energy cost
@@ -95,7 +101,7 @@ def allocate_plan_NN_model_optimize(record, data_config: DataConfig, **kws):
                                                             data_config=data_config,
                                                             convert_output_size=data_config.user_number*data_config.uav_number,
                                                             threshold_p=1 / (data_config.uav_number + 1),
-                                                            PENALTY=kws['OVT_PENALTY'])
+                                                            PENALTY=SEARCH_OVT_P)
 
     if opt_eng_cost < eng_cost:
         __allocate_plan = convert_index_to_zero_one_sol(new_y, data_config)
@@ -127,7 +133,6 @@ def allocate_plan_with_time_constraint(record, data_config: DataConfig, **kws):
         for chs in items[1:][0]:
             user_to_uav_infos[user_idx].append(chs)
 
-
     _, _, __allocate_plan = data_config.allocate_with_no_overtime_constraint(record, local_time_ranking, user_to_uav_infos)
 
     if kws['print_plan']:
@@ -143,19 +148,27 @@ def compare_method(allocate_plan_generation_method, PENALTY):
         store_overtime_ratio = []               # 存在超时的分配方案中，超时用户的比例。
         store_overtime_people = []              # 存在超时的分配方案中，超时用户的人数。
 
+        total_trans_speed = total_trans_eng = 0
+        # print('log, remove board = {}'.format(kws['remove_board']))
+        exp_remove_board = False
+
         for idx, record in enumerate(tqdm(X)):
             # 用给定方法生成一个 allocate plan
             __allocate_plan = allocate_plan_generation_method(record, data_config, data_idx=idx, **kws)
-            # 计算energy cost
-            _, energy, overtime_logs = whale(record, __allocate_plan, data_config, need_stats=True, optimize_phi=True)
 
-            if overtime_logs:
+            # 计算energy costn
+            _, energy, overtime_logs = whale(record, __allocate_plan, data_config, need_stats=True, optimize_phi=True, remove_board=exp_remove_board, test_stage=True)
+
+            if len(overtime_logs[0]) > 0:
             # 统计超时数据stat
             # 如果这条record有超时
                 total_overtime_records_num += 1
-                store_overtime_ratio.append(len(overtime_logs) / data_config.user_number)
-                store_overtime_people.append(len(overtime_logs))
-                total_overtime_penalized_eng_cost += (PENALTY) * len(overtime_logs)
+                store_overtime_ratio.append(len(overtime_logs[0]) / data_config.user_number)
+                store_overtime_people.append(len(overtime_logs[0]))
+                total_overtime_penalized_eng_cost += (PENALTY) * len(overtime_logs[0])
+                
+            total_trans_speed += overtime_logs[1]
+            total_trans_eng += overtime_logs[-1]
 
             total_eng_cost += energy
             total_overtime_penalized_eng_cost += energy
@@ -167,7 +180,12 @@ def compare_method(allocate_plan_generation_method, PENALTY):
         avg_overtime_ratio              = sum(store_overtime_ratio) / len(store_overtime_ratio) if len(store_overtime_ratio) else 0
         avg_overtime_people             = sum(store_overtime_people) / len(store_overtime_people) if len(store_overtime_people) else 0
 
-        return avg_eng_cost, avg_overtime_pe_eng_cost, overtime_records_ratio, avg_overtime_ratio, avg_overtime_people
+        extra_logs = {
+            'trans_speed' : total_trans_speed / len(X),
+            'trans_eng' : total_trans_eng / len(X),
+        }
+
+        return avg_eng_cost, avg_overtime_pe_eng_cost, overtime_records_ratio, avg_overtime_ratio, avg_overtime_people, extra_logs
     
     return inner
 
@@ -178,6 +196,8 @@ if __name__ == '__main__':
     parser.add_argument('--nnModel', type=str, help='使用哪一个NN模型, choose from {MLP, LSTM, LSTM_ATT}')
     parser.add_argument('--uavNumber', type=int, help='uav的数量')
     parser.add_argument('--userNumber', type=int, help='user的数量')
+    parser.add_argument('--training_interval', type=int, help='training interval的大小')
+    parser.add_argument('--model_memory_size', type=int, help='memory大小', default=None)
     parser.add_argument('--test_NN_only', action='store_true', help='user的数量', default=False)
     args = parser.parse_args()
 
@@ -188,6 +208,8 @@ if __name__ == '__main__':
     data_config = DataConfig(load_config_from_path='./Config/CONFIG_' + inner_path + '.json')
     data_config.overtime_penalty = 0                        # 显示energy cost的时候，去掉overtime penalty.
     OVERTIME_PENALTY = 100
+    Memory = args.model_memory_size
+    train_per_step = args.training_interval
     KNM_K = data_config.uav_number * data_config.user_number
     print('[Test Config] OVERTIME PENALTY is set to >>>100<<<')
 
@@ -198,7 +220,7 @@ if __name__ == '__main__':
     Record = load_from_csv(path, data_type=float)
     
     X_feature_file = './Dataset/{}/TESTING_NumOfUser:{}_NumOfUAV:{}_feature.csv'.format(dataset_save_dir, number_of_user, number_of_uav)
-    feature = load_from_csv(X_feature_file, data_type=float)
+    feature = torch.Tensor(load_from_csv(X_feature_file, data_type=float))
 
     local_rank_file = './Dataset/{}/TESTING_NumOfUser:{}_NumOfUAV:{}_local_comp_time_ranking.csv'.format(dataset_save_dir, number_of_user, number_of_uav)
     local_time_rankings = load_from_csv(local_rank_file)
@@ -212,23 +234,20 @@ if __name__ == '__main__':
     # ---------------------------------------------------------------------------------------------------------
     # 选择NN模型
     model_name = args.nnModel.upper()
-    if model_name == 'MLP':
-        print('Loading model MLP')
-        model = MLP
-    elif model_name == 'LSTM':
-        print('Loading model Naive LSTM')
-        model = LSTM_Model
-    else:
-        print('Loading model LSTM w/ Attention')
-        model = Model_LSTM_IMP
+    model = MLP
 
     save_dir = './Saved_model/user:{}_uav:{}/'.format(number_of_user, number_of_uav)
-    model_save_path = save_dir + 'MODEL_{}_NumOfUser:{}_NumOfUAV:{}.pt'.format(model_name, number_of_user, number_of_uav)
+    model_save_path = save_dir + 'MODEL_{}_NumOfUser:{}_NumOfUAV:{}_TI:{}_ME:{}.pt'.format(model_name, number_of_user, number_of_uav, train_per_step, Memory)
+
+    # LOAD GPU
+    device = torch.device('cuda')
     model = model.load_model(model_save_path)
+    model.to(device)
+    feature = feature.to(device)
+    
 
     # ---------------------------------------------------------------------------------------------------------
     # 开始测试不同方法
-    # 1. NN model
     try_method(Record, 
                method=compare_method(allocate_plan_NN_model, OVERTIME_PENALTY),
                method_name='NN Model : {}'.format(str(model_name)),
@@ -236,6 +255,7 @@ if __name__ == '__main__':
                input_feature=feature,
                print_plan=False)
 
+    print('-' * 50)
     try_method(Record, 
                method=compare_method(allocate_plan_NN_model_optimize, OVERTIME_PENALTY),
                method_name='NN Model : {} (better solution is generated during test with KNM algorithm, K={})'.format(str(model_name), KNM_K),
@@ -272,8 +292,8 @@ if __name__ == '__main__':
 
     print('-' * 50)
     # random (without time constraint), randomly select from upload choices only
-    # try_method(Record, compare_method(allocate_plan_all_upload_random, OVERTIME_PENALTY), 'ALL UPLOAD OPTIMIZED RANDOM (K=1)', K=1, print_plan=False)
+    try_method(Record, compare_method(allocate_plan_all_upload_random, OVERTIME_PENALTY), 'ALL UPLOAD OPTIMIZED RANDOM (K=10)', K=10, print_plan=False)
 
     print('-' * 50)
     # random (without time constraint), randomly select from upload + local choices
-    # try_method(Record, compare_method(allocate_plan_local_and_upload_random, OVERTIME_PENALTY), '(LOCAL + UPLOAD) OPTIMIZED RANDOM (K=1)', K=1, print_plan=False)
+    try_method(Record, compare_method(allocate_plan_local_and_upload_random, OVERTIME_PENALTY), '(LOCAL + UPLOAD) OPTIMIZED RANDOM (K=10)', K=10, print_plan=False)

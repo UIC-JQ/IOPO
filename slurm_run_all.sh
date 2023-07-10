@@ -1,6 +1,3 @@
-# nohup ./run.sh 3 10 &
-# nohup ./run.sh 3 20 &
-# nohup ./run.sh 3 30 &
 rm slurm_log/*
 sbatch s_3_10.sh
 sbatch s_3_15.sh
